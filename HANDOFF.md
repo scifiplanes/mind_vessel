@@ -26,9 +26,9 @@ Open `mind-vessel.html`. First run shows a short intro and two coach marks (stor
 
 Keys: `Space` pause · `S` speed ×1/×2/×4 · `M` region map · `L` Library · `B` vessel sheet · `G` log (Detailed) · `R` world overlay · `V` dice rolls · `D` dither · `F9` or `` ` `` debug panel · `U` Simple/Detailed · `N` ×2 abandon vessel · `T` theme · `H` help · `Esc` close.
 
-`localStorage` keys: `mindvessel.v2` (deepest tier reached), `mindvessel.coached2`, `mindvessel.uimode` (`simple`|`detailed`), `mindvessel.debug` (dither and log settings), `mindvessel.autorestart`.
+`localStorage` keys: `mindvessel.v2` (deepest tier reached), `mindvessel.campaign.v1` (full campaign + living vessel), `mindvessel.coached4` (coach complete; older `coached2`/`coached3` ignored), `mindvessel.uimode` (`simple`|`detailed`), `mindvessel.debug` (dither and log settings), `mindvessel.autorestart`.
 
-**The campaign lives in memory only.** Reloading the page starts a new region. Persisting the campaign across reloads (serialising `RG` and every visited site's `s.dun`) is a known open task.
+**Campaign persistence:** `saveCampaign` / `loadCampaign` serialise `RG` (sites, civs with Map/Set revived, news), `cyc`, visited `s.dun` TypedArrays, and the living vessel (`vmem`, Mind/Library, followers). Saves debounce ~900 ms after site enter/leave/region ticks, and flush on `beforeunload` / tab hide. Wipe (`W` twice) clears the campaign key. Reloading resumes the same region and vessel.
 
 ---
 
@@ -72,19 +72,21 @@ The script is one `<script>` block, organised in banner-commented sections (sear
 
 ## 4. Systems summary
 
-**Thoughts and verbs.** ~47 verbs. Categories: Combat, Survival, Stealth, Extraction, Refining, Making, Social, Travel, Broad, Modifier. Broad Thoughts (cost 2) bundle verbs. Conditions: `hpBelow`, `energyBelow`, `energyAbove`, `threat`, `calm`, `outnumbered`, `dark`, `foodLow`. **Attention:** open-ended work drains `a.focus.all` against `patience(a)` (90 s + 12 s per WIS); when spent, work verbs skip and lower Thoughts (often travel) take over.
+**Thoughts and verbs.** ~64 verbs. Categories: Combat, Survival, Stealth, Extraction, Refining, Making, Social, Travel, Broad, Modifier. Broad Thoughts (cost 2) bundle verbs. Conditions: `hpBelow`, `energyBelow`, `energyAbove`, `threat`, `calm`, `outnumbered`, `dark`, `foodLow`, `hot`, `packFull`, `packLow`, `powered`, `restless`, `followerHurt`, `damp`, `light`, `siteDanger`. Travel `to`: deeper, unknown, plenty, kin, safety, ruins, mark, **news**, **remains**, **power**. New primitives: **TEND** (feed dying stations from pack), **DISMANTLE** (tear down own builds), **RECRUIT** (peaceful people as followers, player-only). Map-sharing verbs stay player-only. Cross-register *parasite* Thoughts (Cable Smoke, Scrap Cairn, Hide Jack, Ash Meter, Smoke Token, Lease Hide, plus Ash Fight / Break and Run / Clear Out) seed into the "wrong" register so civs mix techniques; Smokekin / Rivetguild / Leasechoir starters sometimes roll one. **Attention:** open-ended work drains `a.focus.all` against `patience(a)` (90 s + 12 s per WIS); when spent, work verbs skip and lower Thoughts (often travel) take over. `FORAGE`, `EXPLORE`, `HOME`, `WANDER`, `STUDY`, `TEND`, `DISMANTLE`, `RECRUIT` are in `WORK`; map-sharing (`ASK`/`RECALL`/`SURVEY`/`SCAN`) stays free.
 
-**Material world.** Walls and floors yield materials via specific verbs and turn into other tiles. Materials refine (heat or live conduit for some), assemble into gear and tools by role, build structures (fire, furnace, lamp, snares, walls).
+**Material world.** Walls and floors yield materials via specific verbs and turn into other tiles. Materials refine (heat or live conduit for some), assemble into gear and tools by role, build structures (fire, furnace, smoke pit, drying rack, bone cairn, workbench, meter post, stamp anvil, breaker, incubator, badge post, coolant tap, lamp, snares, walls, racks, beacons). Register intermediates: fiber, smoked meat, gasket, coolant, badge token. **Station scarcity:** fire/smoke/lamp/beacon burn fuel as before; press goes cold without nearby heat (craft bonus off); meter/badge/incubator need live power (badge can also drink a token/wafer); chill drinks coolant — fails show as slog + card life, and gate SCAN / INCUBATE / Warden clearance.
 
 **Energy.** Every body burns energy; each species or kind feeds its own way (organic, flesh, rot, power, light, echo, heat, mineral, or growth for plants).
 
-**Region.** Sites have type, resources, populations (N grazers, Q hunters, S settlers, F growth), species and kind mixes, civilizations whose ideas are Thoughts (they mutate, spread at contact, schism, merge, war, transcend, fall), and cycles (Dimming/Warming, Slumber/Quickening). Site *phase* (primordial, competitive, colonial, complex, collapse) is shown diegetically (arrival impression plus air tint and particles).
+**Three Registers of Work.** Soft technique weights on every site (`site.reg` / `SITE_REG`): **Bone** (smoke, hide, grit, rite), **Plate** (scrap, steam, stamp, meter), **Lease** (live lines, badge, wet lab). Not eras — coexisting solutions to the same problems. Early tiers bias Bone sites, mid Plate, deep Lease. `ideaPool`, machines, nodes, encounters, and kind mixes follow register weights via `pickByReg` / `primaryReg`.
+
+**Region.** Sites have type (~34 biomes across the three registers, including Pit/Crypt, Furnace/Shaft, Vault/Atrium), resources, populations (N grazers, Q hunters, S settlers, F growth), species and kind mixes, civilizations whose ideas are Thoughts (they mutate, spread at contact, schism, merge, war, transcend, fall), and cycles (Dimming/Warming, Slumber/Quickening). Site *phase* (primordial, competitive, colonial, complex, collapse) is shown diegetically (arrival impression plus air tint and particles).
 
 **People.** Civilization members and settlers have full components. They extract, refine, build, tame animals, trade, listen, preach (to each other and to the vessel; preaching can add a Thought to your Library), gossip news (more if they carry social Thoughts), and dig more room around home.
 
-**Creatures** (`KIND`): no culture, class, faith, sign or civilization; Minds of instincts; never transfer Thoughts. Fauna: Ductrat, Rustmite, Glasswing, Seepworm (grazers); Bonehound, Cablesnake (hunters, sturdier, sprint while hunting). Flora (rooted): Moldbloom (faint glow), Glowcap (lights its surroundings), Pipevine (thorns), Lichen. Plants feed from their tile and spread; grazers `GRAZE` them; hunters hunt grazers. Grazers are capped by plants, hunters by grazers (`faunaRoom`); empty hunter niches draw a hunter in from next door. The vessel learns instincts by `STUDY` (watching; WIS check); creature-only Thoughts: Graze, Skitter, Play Dead, Carrion Sense.
+**Creatures** (`KIND`): no culture, class, faith, sign or civilization; Minds of instincts; never transfer Thoughts. Core fauna plus register-native kinds (Bone: Tallowrat, Cairnworm, …; Plate: Gasketmite, Valvehound, …; Lease: Badgefly, Tokenwight, …). Flora (rooted): Moldbloom, Glowcap, Pipevine, Lichen, and later register plants. Plants feed from their tile and spread; grazers `GRAZE` them; hunters hunt grazers. Grazers are capped by plants, hunters by grazers (`faunaRoom`, Bone/Lease bias hunters higher); `regionStep` refills empty hunter niches. The vessel learns instincts by `STUDY` (watching; WIS check); creature-only Thoughts: Graze, Skitter, Play Dead, Carrion Sense.
 
-**News.** NPC gossip (`gossipStep`): full text if the vessel carries a social Thought (Listen, Barter, Proselytize), otherwise fragments («…war… Silo Hesk…»). Read the Feeds (`SCAN`) reads terminals and powered panels or conduits for region-wide news (cooldowns). Heard news marks sites on the map and makes them pulse.
+**News.** NPC gossip (`gossipStep`): full text if the vessel carries a social Thought (Listen, Barter, Proselytize), otherwise fragments («…war… Silo Hesk…»). Read the Feeds (`SCAN`) reads terminals and powered panels or conduits for region-wide news (cooldowns). Heard news marks sites on the map and makes them pulse. Big events (`announce`) can mention register bits (`{bit}` / `{reg}`: smoke / stamp / badge).
 
 **Campaign.** A dying or abandoned vessel leaves its remains (with its map knowledge), all gear, its full pack, and a Thought Shard. The next vessel wakes at the campaign start with fresh fog of war. Map sharing: Ask the Way (`ASK`), Read the Dead (`RECALL`), Survey Lines (`SURVEY`). Revealed tiles are stored as `explored[i]===2` ("told") and drawn darker until seen.
 
@@ -137,17 +139,28 @@ Some numbers in the suites are statistical (ecosystem counts, gossip rates). Rer
 
 ---
 
-## 7. Known issues and open tasks
+## 7. Content pass (data + copy)
 
-- **Campaign persistence across reloads** (serialise `RG`, civilizations with `Map`/`Set` fields, `s.dun` typed arrays) is not implemented.
-- **People die off at some civilized sites** (predates creatures; seen e.g. 3 → 0 at a Foundry in three minutes).
-- **Hunter coverage** varies a lot between generated regions; a minimum hunter level in `regionStep` would flatten it.
+Shipped in-repo max content expansion (no new VERB/MATS chains), plus a follow-up pass:
+
+- **Diegetic pools:** `NEWS_SAY` (~12 templates/kind), `PH_LINE`/`PH_BARK` (10/phase), `BARK` (war/famine register-flavored), `GARBLE` (10 fragment patterns), `NPC_SAY` (+offer/way/refuse/register lines; trade pool expanded) + `npcSay`/`npcRegSay`, `SITE_BIT`, naming pools.
+- **Thoughts:** underused-verb/condition combos (`dampdrain`, `packforage`, `crewguard`, `newsremains`, `studydig`, `recallway`, `slicktunnel`, `wetflee`, `powerwatch`, `lighthide`, `siteflee`, `renderstill`, `smashpry`) and plant habits (`rootward`, `sporehiss`); orphan specifics + modifiers wired into `BONE_SEED`/`PLATE_SEED`/`LEASE_SEED`; `FAM_OF` complete; `CULT_PARASITE` on most cultures.
+- **World:** thin biomes filled (Parish/Dig/Gallery/Vat/Splice/Exchange) via habitat weights + kinds `Parishbloom`, `Digroot`, `Gallerymoth`, `Splicegel`, `Exchangemite`; flora Minds beyond `spread`; core kinds register-tagged; +3 Bone machines (`Marrow Lathe`, `Grease Vat`, `Ash Kiln`).
+- **Identity:** `TRAIT`/`SIGN` carry `reg`; `genComp` / `rollTraits` bias class, faith, sign, traits by culture register.
+- **Onboarding:** 6 coach steps; START/HELP register lines; death obituary includes register of death site.
+- **Campaign:** `mindvessel.campaign.v1` persistence (see §2).
+
+## 8. Known issues and open tasks
+
+- **Campaign save size:** many visited dungeons can approach `localStorage` quotas; if save fails, check the console warn. Consider pruning never-revisited duns later.
+- **People die-off** at mid-avail civ sites is softened (lower settler decay when `S` is 2–8); still worth watching Foundries over long runs.
+- **Hunter floor** in `regionStep` refills empty niches more aggressively on Bone/Lease sites; coverage still varies by region seed.
 - **Told tiles count as explored**, so exploring Thoughts won't go into told areas. This is an intended trade-off, but worth playtesting.
 - **Earlier balance notes:** Shepherd and Merchant idle in many sites; Stalker and Coward spend a lot of time hiding; exploring a site takes 3–5 minutes; tunnelling has no cap for the vessel (NPC settlements cap at 24 walls per site).
 - **Simple mode on phones:** the collapsed sheet still shows a one-line text summary. Simple mode has no log view by design.
 - **Glyphs** need a visual pass in a real browser.
 
-## 8. Working conventions used so far
+## 9. Working conventions used so far
 
 - Edit `mind-vessel.html` directly; it is the single source of truth. Back it up before large patches.
 - After any change: `node --check` on the extracted script (`node extract.js && node --check game.js`), then the relevant suites.
