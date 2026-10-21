@@ -1,0 +1,7 @@
+node_modules/
+sim/game.js
+worlds/*.json
+!worlds/.gitkeep
+.DS_Store
+*.log
+.cursor/debug*.log

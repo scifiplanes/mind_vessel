@@ -741,11 +741,142 @@ const KIND={
 };
 for(const k in KIND){const K=KIND[k];SPECIES[k]={m:K.m,ab:K.ab,abd:K.abd,mats:K.mats,pal:K.pal,creature:1};DIET[k]=K.diet}
 const isCreature=a=>!!(a&&a.comp&&KIND[a.comp.species]);
-// how many more animals this site's growth can carry: grazers follow plants, hunters follow grazers
+// --- Ecology systems (assembly / competency / caps / focus / clearance / LOD / boundaries) ---
+const ASM_MAX=24;
+const COMP_SP=['morpho','metabo','grad','auto','assemb','nomos','attento','socio'];
+function bumpAssembly(s,d){
+  if(!s)return 0;const was=s.A||0;s.A=clamp(was+(d||0),0,ASM_MAX);
+  // telegraph first time the yard crosses wake-depth while the phase can stir
+  if(was<6&&s.A>=6&&(s.phase==='competitive'||s.phase==='colonial'||s.phase==='complex')&&RG&&s===RG.sites[RG.cur]&&typeof slog==='function'&&!soupQuiet)
+    slog('The yard\'s residue deepens. Something could stir.','dim');
+  return s.A;
+}
+function competency(src){
+  const sp=typeof src==='string'?src:(src&&src.comp&&src.comp.species);
+  const K=sp&&KIND[sp];const role=K?K.role:(src&&src.role);
+  const c={morpho:0,metabo:0,grad:0,auto:0,assemb:0,nomos:0,attento:0,socio:0};
+  if(role==='plant'||(K&&K.k==='flora')){c.grad=.75;c.morpho=.55;c.assemb=.45;c.metabo=.2;c.auto=.25}
+  else if(role==='forager'){c.metabo=.8;c.attento=.35;c.grad=.25;c.auto=.3;c.assemb=.2}
+  else if(role==='predator'){c.metabo=.55;c.attento=.4;c.socio=.25;c.auto=.35;c.assemb=.15}
+  else{c.socio=.55;c.attento=.5;c.assemb=.4;c.metabo=.35;c.auto=.4;c.morpho=.25}
+  if(K){if(K.lum||K.heat||K.damp||K.conduct||K.seep||K.echo)c.grad=Math.max(c.grad,.7);
+    if(K.warden||K.lens)c.nomos=Math.max(c.nomos,.85);
+    if(K.lens)c.attento=Math.max(c.attento,.55);
+    if(K.thorns||K.meat)c.morpho=Math.max(c.morpho,.6);
+    if(K.diet&&(K.diet.src==='power'||K.diet.src==='heat'||K.diet.src==='light'||K.diet.src==='echo'))c.metabo=Math.max(c.metabo,.65)}
+  return c;
+}
+function hasComp(a,space,thr){const c=(a&&a.compVec)||competency(a);return(c[space]||0)>=(thr==null?.35:thr)}
+function taxFocus(src,dst,n){if(!dst)return 0;dst.focus=dst.focus||{all:0};const amt=n==null?12:n;dst.focus.all=(dst.focus.all||0)+amt;
+  if(src){if(src.focus)src.focus.all=Math.max(0,(src.focus.all||0)-amt*.35);if(src.energy!=null&&src.maxEnergy!=null){src.energy=Math.min(src.maxEnergy,(src.energy||0)+amt*.15)}}
+  if(dst===player&&typeof bark==='function'){bark(dst,'attention thins','dim');if(typeof slog==='function')slog(`${dst.comp.name}'s attention thins${src&&src.comp?' under the '+src.comp.species:''}.`,'dim')}
+  return amt}
+function refundFocus(a,n){if(!a||!a.focus)return;a.focus.all=Math.max(0,(a.focus.all||0)-(n==null?10:n))}
+function assemblyWake(s){
+  if(!s||!RG||(s.A||0)<6)return false;
+  if(s.phase!=='colonial'&&s.phase!=='complex'&&s.phase!=='competitive')return false;
+  if(typeof actors==='undefined'||!actors)return false;
+  const role=R()<.55?'forager':'plant';
+  const km=kindMix(s);let ent=Object.entries(km).filter(([k])=>KIND[k]&&KIND[k].role===role);
+  if(!ent.length)return false;
+  ent=ent.map(([k,w])=>{const c=competency(k);return[k,w*(1+(c.assemb||0)*1.4+(c.grad||0)*.6)]});
+  let r=R()*ent.reduce((a,e)=>a+e[1],0);let pick=ent[0][0];for(const[k,w]of ent){r-=w;if(r<=0){pick=k;break}}
+  const c=spawnAt(role,pick);if(!c)return false;c.compVec=competency(c);c.fromAssembly=1;bumpAssembly(s,-1.2);
+  if(typeof bark==='function'&&(typeof seen!=='function'||seen(c)||(player&&Math.hypot(c.x-player.x,c.y-player.y)<10))){bark(c,'stirs','info');if(typeof slog==='function')slog(`The yard remembers enough: a ${c.comp.species} stirs from the residue.`,'dim')}
+  return true;
+}
+function assemblySleep(s){
+  if(!s||!RG||(s.A||0)>4||s.phase!=='collapse')return false;
+  const live=actors.filter(b=>!b.dead&&b.creature&&b!==player&&!b.follower&&((b.compVec&&b.compVec.assemb)||competency(b).assemb||0)>=.35);
+  if(!live.length)return false;const b=PICK(live);const sp=b.comp.species,x=b.x,y=b.y;
+  b.dead=true;actors=actors.filter(a=>a!==b);bumpAssembly(s,.8);if(b.flora)s.F=Math.min(18,(s.F||0)+.5);else if(b.role==='forager')s.N=Math.min(18,(s.N||0)+.4);else s.Q=Math.min(12,(s.Q||0)+.3);
+  if(typeof slog==='function')slog(`A ${sp} sinks back into the yard's residue.`,'dim');
+  if(typeof bark==='function'&&player&&Math.hypot(x-player.x,y-player.y)<10)bark({x,y},'sinks','dim');
+  return true;
+}
+// Bond spaces for coalesce (skip socio/attento/morpho until needed)
+const BOND_SP=['auto','grad','metabo','assemb','nomos'];
+const BOND_SAY={auto:'one self',grad:'one weather',metabo:'one mouth',assemb:'one pile',nomos:'one clearance'};
+const BOND_HABIT={auto:'holds itself together',grad:'keeps the weather',metabo:'hunts a channel',assemb:'deepens the pile',nomos:'guards who may stand'};
+function domBond(c){let best='auto',bv=-1;for(const k of BOND_SP){const v=c[k]||0;if(v>bv){bv=v;best=k}}return best}
+function bondSpaceFor(a,b){
+  const ca=a.compVec||competency(a),cb=b.compVec||competency(b);
+  const da=domBond(ca),db=domBond(cb);
+  // only matching dominants bond (keeps nomos mouths from swallowing metabo herds)
+  if(da===db&&Math.min(ca[da]||0,cb[da]||0)>=.4)return da;
+  return null;
+}
+function assemblyFeel(s){
+  const A=(s&&s.A)||0;
+  if(A<3)return'Little of the yard has been put in order.';
+  if(A<6)return'The work is starting to leave a mark.';
+  if(A<12)return'The yard is thick with made things; something could stir.';
+  return'The residue is deep. The yard remembers how it was built.';
+}
+function habitFeel(a){const d=domBond((a&&a.compVec)||competency(a));return BOND_HABIT[d]||'moves as it must'}
+function telegraphBonds(){
+  if(!player||typeof actors==='undefined'||soupQuiet)return;
+  const near=actors.filter(b=>!b.dead&&b.creature&&b!==player&&!b.follower&&Math.hypot(b.x-player.x,b.y-player.y)<9&&(typeof vis==='undefined'||vis[idx(b.x|0,b.y|0)]));
+  for(let i=0;i<near.length;i++)for(let j=i+1;j<near.length;j++){
+    const a=near[i],b=near[j];if(Math.hypot(a.x-b.x,a.y-b.y)>2.8)continue;
+    if((a._coalesceParts||1)>=2||(b._coalesceParts||1)>=2)continue;
+    const space=bondSpaceFor(a,b);if(!space)continue;
+    if((a.flora||b.flora)&&space!=='grad')continue;if(a.flora!==b.flora)continue;
+    if((a._bondTele||0)>gameTime||(b._bondTele||0)>gameTime)continue;
+    a._bondTele=gameTime+14;b._bondTele=gameTime+14;
+    const say=BOND_SAY[space]||'one body',mx=(a.x+b.x)*.5,my=(a.y+b.y)*.5;
+    if(typeof bark==='function')bark({x:mx,y:my},'lean','dim');
+    if(typeof slog==='function')slog(`A ${a.comp.species} and ${b.comp.species} lean toward ${say}.`,'dim');
+    return;
+  }
+}
+let _coalesceTick=-1;
+function coalesce(a,b){
+  if(!a||!b||a.dead||b.dead||a===b)return null;if(a===player||b===player||a.follower||b.follower||a.construct||b.construct)return null;
+  if(!a.creature||!b.creature)return null;if(Math.hypot(a.x-b.x,a.y-b.y)>2.4)return null;
+  if(RG&&_coalesceTick===RG.tick)return null;
+  const space=bondSpaceFor(a,b);if(!space)return null;
+  if((a.flora||b.flora)&&space!=='grad')return null;
+  if(a.flora!==b.flora)return null; // flora only with flora (grad); fauna with fauna
+  const parts=(a._coalesceParts||1)+(b._coalesceParts||1);if(parts>4)return null;
+  const ca=a.compVec||competency(a),cb=b.compVec||competency(b);
+  a.energy=Math.min(a.maxEnergy,(a.energy||0)+(b.energy||0)*.5);a.focus=a.focus||{all:0};b.focus=b.focus||{all:0};
+  a.focus.all=((a.focus.all||0)+(b.focus.all||0))*.5;a.hp=Math.min(a.maxHp,(a.hp||0)+(b.hp||0)*.3);
+  a._coalesceParts=parts;a.bondSpace=space;a.compVec=Object.assign({},ca);for(const k of COMP_SP)a.compVec[k]=Math.max(ca[k]||0,cb[k]||0);
+  const other=b.comp.species;b.dead=true;actors=actors.filter(x=>x!==b);if(RG)_coalesceTick=RG.tick;
+  const say=BOND_SAY[space]||'one body';
+  if(typeof bark==='function'&&(typeof seen!=='function'||seen(a)||(player&&Math.hypot(a.x-player.x,a.y-player.y)<10))){bark(a,say,'info');if(typeof slog==='function')slog(`Two ${a.comp.species}${other!==a.comp.species?' / '+other:''} hold as ${say}.`,'dim')}
+  return a;
+}
+function split(a){
+  if(!a||a.dead||(a._coalesceParts||1)<2)return null;
+  const n=a._coalesceParts||1;a._coalesceParts=n-1;
+  const role=a.role||'forager',sp=a.comp.species,bond=a.bondSpace;
+  const c=makeCreature(a.x|0,a.y|0,role,sp,a);if(!c)return null;
+  c.energy=a.maxEnergy*.35;c.focus={all:(a.focus&&a.focus.all||0)*.5};c.compVec=competency(c);c._coalesceParts=1;
+  a.energy*=.55;if(a.focus)a.focus.all=(a.focus.all||0)*.5;if(a._coalesceParts<2)a.bondSpace=null;actors.push(c);
+  const say=bond&&BOND_SAY[bond]?BOND_SAY[bond]:'one body';
+  if(typeof bark==='function'&&(typeof seen!=='function'||seen(a)||(player&&Math.hypot(a.x-player.x,a.y-player.y)<10))){bark(a,'splits','dim');if(typeof slog==='function')slog(`A ${sp} forgets it was ${say}.`,'dim')}
+  return c;
+}
+function splitNear(x,y,r,spaces){
+  if(typeof actors==='undefined'||!actors)return 0;let n=0;const R=r==null?3.5:r;const allow=spaces&&spaces.length?new Set(spaces):null;
+  for(const b of actors){
+    if(b.dead||(b._coalesceParts||1)<2||Math.hypot(b.x-x,b.y-y)>=R)continue;
+    if(allow&&!(b.bondSpace&&allow.has(b.bondSpace)))continue;
+    if(split(b))n++;
+  }
+  return n;
+}
+// how many more drinkers / police this site can carry: gradients + assembly, then drinker density
 // Bone and Lease sites carry a slightly higher hunter ceiling
-function faunaRoom(role){const live=actors.filter(b=>!b.dead&&b.creature),pl=live.filter(b=>b.flora).length,gr=live.filter(b=>b.role==='forager').length,hu=live.filter(b=>b.role==='predator').length;
+function faunaRoom(role){const live=actors.filter(b=>!b.dead&&b.creature),pl=live.filter(b=>b.flora).length;
+  const gradN=live.filter(b=>b.flora&&hasComp(b,'grad',.3)).length||pl;
+  const gr=live.filter(b=>b.role==='forager').length,hu=live.filter(b=>b.role==='predator').length;
+  const A=(RG&&RG.sites[RG.cur]&&(RG.sites[RG.cur].A||0))||0;
   const prim=RG&&RG.sites[RG.cur]?primaryReg(RG.sites[RG.cur]):'plate';const huntBias=prim==='bone'||prim==='lease'?1.35:1;
-  return Math.max(0,Math.round(role==='forager'?4+pl*1.3-gr:Math.ceil((1+gr/3)*huntBias)-hu))}
+  return Math.max(0,Math.round(role==='forager'?4+gradN*1.3+A*.35-gr:Math.ceil((1+gr/3)*huntBias)-hu))}
+
 // copy habitat weights onto new register sites from their nearest kin
 const REG_BIO_COPY={Smokehall:['Midden','Ossuary'],Boneyard:['Ossuary','Midden'],Hideyard:['Midden','Hab'],Ashcamp:['Kiln','Midden'],
   Pumphouse:['Sump','Foundry'],Meterward:['Grid','Gallery'],Rivetyard:['Foundry','Stacks'],Coldstore:['Hab','Cistern'],
@@ -1871,7 +2002,7 @@ function envStep(dt,site){
     if(o.k==='asm'&&o.sub==='press'){const hot=nearHeatSrc(o.x,o.y);if(o.cold&&hot){o.cold=0;changed=true}else if(!o.cold&&!hot){o.cold=1;changed=true;slog('A stamp anvil cools.','dim');noteStationNeed('cold press')}}
     if(o.k==='asm'&&o.sub==='meter'){o.life=(o.life||240)-k;const was=!!o.dark;if(nearPowerTile(o.x,o.y)){o.life=Math.min(240,o.life+k*2.5);o.dark=0}if(o.life<=0){o.life=0;o.dark=1}if(!was&&o.dark){slog('A meter post goes dark.','dim');noteStationNeed('dark meter');changed=true}else if(was&&!o.dark)changed=true}
     if(o.k==='asm'&&o.sub==='badge'){o.life=(o.life||240)-k;const was=!!o.dark;if(nearPowerTile(o.x,o.y)){o.life=Math.min(240,o.life+k*2);o.dark=0}else if(o.life<90&&takeMatNear(o.x,o.y,['token','wafer'])){o.life+=120;o.dark=0}if(o.life<=0){o.life=0;o.dark=1}if(!was&&o.dark){slog('A badge post goes dark.','dim');noteStationNeed('dark badge');changed=true}else if(was&&!o.dark)changed=true}
-    if(o.k==='asm'&&o.sub==='chill'){o.life=(o.life||300)-k;const was=!!o.dark;if(o.life<90&&takeMatNear(o.x,o.y,['coolant','water','oil'])){o.life+=150;o.dark=0}if(o.life<=0){o.life=0;o.dark=1}if(!was&&o.dark){slog('A coolant tap runs dry.','dim');noteStationNeed('dry chill');changed=true}else if(was&&!o.dark)changed=true}
+    if(o.k==='asm'&&o.sub==='chill'){o.life=(o.life||300)-k;const was=!!o.dark;if(o.life<90&&takeMatNear(o.x,o.y,['coolant','water','oil'])){o.life+=150;o.dark=0}if(o.life<=0){o.life=0;o.dark=1}if(!was&&o.dark){slog('A coolant tap runs dry.','dim');noteStationNeed('dry chill');splitNear(o.x,o.y,3.5,['auto','grad']);changed=true}else if(was&&!o.dark)changed=true}
     if(o.k==='asm'&&o.sub==='incubator'){o.life=(o.life||240)-k;const was=!!o.dark;if(nearPowerTile(o.x,o.y)||nearHeatSrc(o.x,o.y,2)){o.life=Math.min(240,o.life+k*2);o.dark=0}if(o.life<=0){o.life=0;o.dark=1}if(!was&&o.dark){slog('An incubator goes cold.','dim');noteStationNeed('cold vat');changed=true}else if(was&&!o.dark)changed=true}
     if(o.k==='asm'&&o.sub==='glow'){o.life-=k;if(o.life<=0){removeObj(o);changed=true}}
     if(o.k==='asm'&&o.sub==='corpse'){o.rot=(o.rot||0)+k;if(o.rot>=90){removeObj(o)}}}
@@ -1964,7 +2095,13 @@ function makeActor(o){
   if(a.comp.religion==='Polyscape')a.poly=PICK(STATS);
   recalc(a);a.hp=a.maxHp;return a;
 }
-const aname=a=>a===player?a.comp.name:KIND[a.comp.species]?a.comp.species+(a.owner?' (pet)':''):(a.comp.species==='Safeguard'?'Safeguard':a.comp.species+(a.role==='predator'?' hunter':a.civ?' of '+a.civ.name.replace('The ',''):a.follower?' (yours)':''));
+const aname=a=>{
+  if(a===player)return a.comp.name;
+  let n=KIND[a.comp.species]?a.comp.species+(a.owner?' (pet)':''):(a.comp.species==='Safeguard'?'Safeguard':a.comp.species+(a.role==='predator'?' hunter':a.civ?' of '+a.civ.name.replace('The ',''):a.follower?' (yours)':''));
+  if((a._coalesceParts||1)>=2&&a.bondSpace&&BOND_SAY[a.bondSpace])n+=' ('+BOND_SAY[a.bondSpace]+')';
+  else if(a.fromAssembly)n+=' (from residue)';
+  return n;
+};
 const mindCost=a=>a.mind.reduce((s,t)=>s+TH[t].c,0);
 const blocked=(a,v)=>a.mind.some(t=>{const b=TH[t].blocks;return b===v||(Array.isArray(b)&&b.includes(v))});
 const dietOf=a=>DIET[a.comp.species]||DIET.Crab;
@@ -2206,9 +2343,12 @@ function ambient(a,i){
   if(src==='light')return LIGHT[i]>=.45?LIGHT[i]:0;
   if(src==='heat')return HEAT[i]>=.3?HEAT[i]:0;
   if(src==='echo')return ECHO[i]>=.08?ECHO[i]:0;
-  if(src==='power'){let b=0;for(let d=0;d<4;d++){const X=x+DX[d],Y=y+DY[d];if(X<0||Y<0||X>=MW||Y>=MH)continue;const j=idx(X,Y);const def=blockAt(j);if(def&&def.power&&POWER[j]>=.2)b=Math.max(b,POWER[j])}return b}
+  if(src==='power'){let b=0;for(let d=0;d<4;d++){const X=x+DX[d],Y=y+DY[d];if(X<0||Y<0||X>=MW||Y>=MH)continue;const j=idx(X,Y);const def=blockAt(j);if(def&&def.power&&POWER[j]>=.2)b=Math.max(b,POWER[j])}
+    if(RG&&(RG.sites[RG.cur].clearT||0)>RG.tick&&(hasComp(a,'nomos',.35)||(KIND[a.comp&&a.comp.species]&&KIND[a.comp.species].warden)))b=Math.max(b,.55);
+    return b}
   if(src==='rot'){if(map[i]&&floorAt(i).rot&&stock[i]>=.4)return .6;for(let d=0;d<4;d++){const X=x+DX[d],Y=y+DY[d];if(X<0||Y<0||X>=MW||Y>=MH)continue;const j=idx(X,Y);const def=blockAt(j);if(def&&def.rot&&stock[j]>=.4)return .6}}
   if(src==='fluid')return fluidTile(i)>=0?.6:0;
+  if(RG&&(RG.sites[RG.cur].clearT||0)>RG.tick&&hasComp(a,'nomos',.35))return .5;
   return 0;
 }
 const corpseFor=(a,o)=>o.k==='asm'&&o.sub==='corpse'&&o.parts.some(p=>edible(dietOf(a).src,p[1])>0);
@@ -2875,7 +3015,8 @@ function absorb(a){
   else if(src==='power'){for(let d=0;d<4;d++){const j=idx(x+DX[d],y+DY[d]);const def=blockAt(j);if(def&&def.power&&POWER[j]>=.2){const t=Math.min(POWER[j],.3);POWER[j]-=t;v=t*50;break}}}
   else if(src==='rot'){const tiles=[i,...[0,1,2,3].map(d=>idx(x+DX[d],y+DY[d]))];for(const j of tiles){const def=map[j]?floorAt(j):blockAt(j);if(def&&def.rot&&stock[j]>=.4){stock[j]-=.25;v=10;if(stock[j]<.5)repaintTile(j%MW,(j/MW)|0);break}}}
   else if(src==='fluid'){const j=fluidTile(i);if(j>=0){if(slick&&slick[j])slick[j]=0;else stock[j]=0;v=12;repaintTile(j%MW,(j/MW)|0)}}
-  if(v>0){gainEnergy(a,v);if(seen(a))emit(a.x*TS,a.y*TS-2,6,{light:['#fff4d0','#d8d0a8'],heat:['#ffb040','#e08a30'],echo:['#cfe8e4','#9cdcd2'],power:['#5cc4c4','#a8f0f0'],rot:['#6a8a5a','#7c3438'],fluid:['#6a9ab0','#88c0a0']}[src]||['#ccc'],25,.6,-25)}
+  if(v<=0&&RG&&(RG.sites[RG.cur].clearT||0)>RG.tick&&(src==='power'||hasComp(a,'nomos',.35))){v=8}
+  if(v>0){gainEnergy(a,v);if(seen(a))emit(a.x*TS,a.y*TS-2,6,{light:['#fff4d0','#d8d0a8'],heat:['#ffb040','#e08a30'],echo:['#cfe8e4','#9cdcd2'],power:['#5cc4c4','#a8f0f0'],rot:['#6a8a5a','#7c3438'],fluid:['#6a9ab0','#88c0a0']}[src]||['#9ad8d0','#5cc4c4'],25,.6,-25)}
 }
 function extract(a,i,isFloor,how){
   const def=isFloor?floorAt(i):blockAt(i);if(!def||!def.how)return;
@@ -2893,7 +3034,7 @@ function extract(a,i,isFloor,how){
   else if(after){blk[i]=BI[after];stock[i]=1;repaintTile(x,y);repaintTile(x,y-1);rebuildEnv()}
   else setBlock(i,null);
   if(a===player&&use==='CUT'&&def.regrow){const v=RG&&RG.sites[RG.cur].civ;if(v&&actors.some(b=>!b.dead&&b.civ===v&&b.comp.religion==='The Strain')){v.grudge=(v.grudge||0)+1;log(`  ${v.name} takes the cut personally.`,'bad')}}
-  if(a===player&&use==='STRIP'&&RG){const st=RG.sites[RG.cur];if((st.clearT||0)>RG.tick){st.clearT=RG.tick+90;tiltSiteReg(st,'lease',-.05);tiltSiteReg(st,'bone',.03);announce('linecut',RG.cur,{who:a.comp.name,site:st.name});a.clearSoft=0}}
+  if(a===player&&use==='STRIP'&&RG){const st=RG.sites[RG.cur];if((st.clearT||0)>RG.tick){st.clearT=RG.tick+90;bumpAssembly(st,-.5);tiltSiteReg(st,'lease',-.05);tiltSiteReg(st,'bone',.03);announce('linecut',RG.cur,{who:a.comp.name,site:st.name});a.clearSoft=0;splitNear(i%MW,(i/MW)|0,4,['nomos','metabo'])}}
   if(a===player){stats.extracted=(stats.extracted||0)+1;log(`${a.comp.name} ${HOW_PAST[use]} ${def.n.toLowerCase()} → ${partsStr(null,got)}.`,'dim');gainXp(a,1)}
 }
 function butcher(a,o){
@@ -2924,8 +3065,9 @@ function build(a,what,at){
     const o=addObj({k:'asm',sub:what,build:1,x,y,name:B.n,parts:used.map(m=>['part',m]),mine:a===player,by:a.comp?a.comp.name:null,owner:a.civ||null,uses:(B.uses||0)+(kit?2:0),life:B.life||0,store:what==='rack'?{}:null,dark:0});rebuildEnv();
     if(what==='snare')snareMap[at]=1;if(what==='fire'&&a===player)a.anchor={x:x+.5,y:y+.5}
     if(what==='beacon'||what==='cairn'){RG.sites[RG.cur].marked=1;announce('mark',RG.cur,{who:a===player?a.comp.name:aname(a),site:RG.sites[RG.cur].name})}
-    if(what==='breaker'&&a===player&&RG){const st=RG.sites[RG.cur];if((st.clearT||0)>RG.tick){st.clearT=RG.tick+110;tiltSiteReg(st,'lease',-.08);announce('linecut',RG.cur,{who:a.comp.name,site:st.name})}}}
+    if(what==='breaker'&&a===player&&RG){const st=RG.sites[RG.cur];if((st.clearT||0)>RG.tick){st.clearT=RG.tick+110;tiltSiteReg(st,'lease',-.08);announce('linecut',RG.cur,{who:a.comp.name,site:st.name});splitNear(x,y,4,['nomos','metabo'])}}}
   if(seen(a)){emit((x+.5)*TS,(y+.5)*TS,16,['#ffe6a0','#ffb040','#c8c8c8'],50,.5);bark({x,y},B.n.toLowerCase()+' built',a===player?'good':'dim')}
+  if(RG)bumpAssembly(RG.sites[RG.cur],.9);
   if(a===player){log(`${a.comp.name} builds a ${B.n.toLowerCase()} from ${partsStr(null,used)}.`);gainXp(a,2)}
   else if(seen(a))log(`${aname(a)} builds a ${B.n.toLowerCase()}.`,'dim');
 }
@@ -2936,7 +3078,7 @@ function unstowMat(a,o){if(!objs.includes(o)||!o.store||packCount(a)>=a.packCap)
 function thoughtToCarve(a){const have=objs.filter(o=>o.inscribed).flatMap(o=>o.memes||[]);const pool=a===player?a.mind.filter(t=>TH[t]&&!TH[t].hidden&&!TH[t].b).concat(save.lib):(a.civ?[...a.civ.memes.keys()]:a.mind);return pool.find(t=>TH[t]&&!TH[t].hidden&&!have.includes(t))||null}
 function doInscribe(a,t,at){if(!TH[t]||(a.inv.bone||0)<1||(a.inv.ecto||0)<1||!freeFloor(at))return;useMat(a,'bone');useMat(a,'ecto');const x=at%MW,y=(at/MW)|0,who=a===player?a.comp.name:(a.civ?a.civ.name:aname(a));
   addObj({k:'art',type:5,inscribed:1,build:1,civ:a.civ||null,civName:who,hue:a.civ?a.civ.hue:40,state:'active',used:false,name:who+' Inscription',memes:[t],x,y,parts:[['bone','bone'],['halo','ecto']]});
-  if(RG){const st=RG.sites[RG.cur];st.rite=(st.rite||0)+1;st.arts=Math.min(5,(st.arts||0)+1);const reg=thoughtReg(t);if(reg)tiltSiteReg(st,reg,hasTrait(a,'Rite-Hand')?.1:.06);
+  if(RG){const st=RG.sites[RG.cur];st.rite=(st.rite||0)+1;st.arts=Math.min(5,(st.arts||0)+1);bumpAssembly(st,.6);const reg=thoughtReg(t);if(reg)tiltSiteReg(st,reg,hasTrait(a,'Rite-Hand')?.1:.06);
     if(st.civ&&MEME[t]&&st.civ.memes.size<6&&!st.civ.memes.has(t)&&R()<.22){st.civ.memes.set(t,{fit:.35});announce(PARA_SET.has(t)?'parasite':'rite',RG.cur,{civ:st.civ.name,idea:TH[t].n,site:st.name})}
     else if((st.rite||0)%3===0)announce('rite',RG.cur,{civ:st.civ?st.civ.name:who,idea:TH[t].n,site:st.name})}
   if(seen(a)){emit((x+.5)*TS,(y+.5)*TS,16,['#e0a040','#c4b89a','#9cdcd2'],40,.6);bark({x,y},TH[t].n,'idea')}
@@ -2946,7 +3088,9 @@ function clearSlick(a,i){if(!slick||!slick[i])return;slick[i]=0;addMat(a,'oil',1
 function doSeal(a,at){if(!sealMap||sealMap[at]||objs.some(o=>o.x===at%MW&&o.y===((at/MW)|0)))return;const used=takeMats(a,BUILD.wall.need);if(!used)return;const x=at%MW,y=(at/MW)|0;
   addObj({k:'asm',sub:'seal',build:1,x,y,name:'Seal',parts:used.map(m=>['part',m]),by:a.comp?a.comp.name:null,mine:a===player});sealMap[at]=1;
   const ex=exits.find(e=>e.i===at);if(ex&&RG){const here=RG.sites[RG.cur],cut=sealCutOf(here);cut.add(ex.to);const other=RG.sites[ex.to];if(other)sealCutOf(other).add(RG.cur);if(isIsolated(here))announce('ductbreak',RG.cur,{sa:here.name,sb:other?other.name:'the dark'})}
-  if(seen(a))bark({x,y},'sealed','dim');if(a===player)log(`${a.comp.name} seals the duct with ${partsStr(null,used)}.`,'acc')}
+  if(seen(a))bark({x,y},'sealed','dim');if(a===player)log(`${a.comp.name} seals the duct with ${partsStr(null,used)}.`,'acc');
+  splitNear(x,y,3.5,['auto','grad']);
+}
 function doUnseal(a,o){if(!objs.includes(o))return;const i=idx(o.x,o.y);const ex=exits.find(e=>e.i===i);removeObj(o);if(sealMap)sealMap[i]=0;const got=o.parts.map(p=>p[1]);if(a.comp&&a.comp.sign==='Seal'&&got.length)got.push(got[0]);for(const m of got)addMat(a,m,1);
   if(ex&&RG){const here=RG.sites[RG.cur];sealCutOf(here).delete(ex.to);const other=RG.sites[ex.to];if(other)sealCutOf(other).delete(RG.cur);announce('ductmend',RG.cur,{sa:here.name,sb:other?other.name:'the dark'})}
   if(a===player)log(`${a.comp.name} quarries the seal → ${partsStr(null,got)}.`,'dim')}
@@ -3018,7 +3162,7 @@ function tendStation(a,o){
   else if(o.sub==='chill'){if(useMat(a,'coolant')||useMat(a,'water')||useMat(a,'oil')||useMat(a,'clearance')){o.life=Math.min((o.life||0)+150,300);o.dark=0;fed=true}}
   else if(o.sub==='badge'){if(useMat(a,'token')||useMat(a,'wafer')||useMat(a,'clearance')){o.life=Math.min((o.life||0)+120,240);o.dark=0;fed=true}else if(nearPowerTile(o.x,o.y)){o.life=Math.min((o.life||0)+80,240);o.dark=0;fed=true}}
   else if(o.sub==='meter'||o.sub==='incubator'){if(nearPowerTile(o.x,o.y)||(o.sub==='incubator'&&nearHeatSrc(o.x,o.y,2))){o.life=Math.min((o.life||0)+100,240);o.dark=0;fed=true}else if(useMat(a,'cell')){o.life=Math.min((o.life||0)+80,240);o.dark=0;fed=true}}
-  if(fed){rebuildEnv();if(a===player){a.stationNeed=0;a.focus.all=Math.max(0,(a.focus.all||0)-18)}if(hasClearance(a)||o.sub==='badge')softClear(a,50);if(seen(a)){bark(o,'fed','dim');emit((o.x+.5)*TS,(o.y+.5)*TS,10,['#ffe6a0','#5cc4c4'],25,.5)}if(a===player)log(`${a.comp.name} tends the ${o.name.toLowerCase()}.`,'dim')}
+  if(fed){rebuildEnv();if(RG)bumpAssembly(RG.sites[RG.cur],.4);if(a===player){a.stationNeed=0;a.focus.all=Math.max(0,(a.focus.all||0)-18)}if(hasClearance(a)||o.sub==='badge')softClear(a,50);if(seen(a)){bark(o,'fed','dim');emit((o.x+.5)*TS,(o.y+.5)*TS,10,['#ffe6a0','#5cc4c4'],25,.5)}if(a===player)log(`${a.comp.name} tends the ${o.name.toLowerCase()}.`,'dim')}
   else if(a===player){noteStationNeed('needs fuel');slog(`${a.comp.name} cannot feed the ${o.name.toLowerCase()}.`,'dim')}
 }
 function doSignal(a,o){
@@ -3054,7 +3198,7 @@ function doSift(a,i){
 function doBrand(a,b){
   if(b.dead||!followers().includes(b))return;
   if(!(useMat(a,'tallow')||useMat(a,'char')||useMat(a,'fuel')||useMat(a,'oil')))return;
-  a.brandCd=gameTime+45;b.brandT=gameTime+90;recalc(b);
+  a.brandCd=gameTime+45;b.brandT=gameTime+90;recalc(b);if(RG)bumpAssembly(RG.sites[RG.cur],.3);
   if(seen(a)){bark(b,'branded','speech');emit(b.x*TS,b.y*TS-4,16,['#e08a30','#ffe6a0'],35,.7,-20)}
   if(a===player)log(`${a.comp.name} brands ${aname(b)}. It stands firmer for a while.`,'acc');
   gainXp(a,2);
@@ -3113,6 +3257,7 @@ function study(a,b){
   if(b.dead||!vis[idx(b.x|0,b.y|0)]){log(`${aname(b)} slipped out of sight.`,'dim');return}
   b.studied=true;const t=b.mind.find(t=>!TH[t].hidden&&!save.lib.includes(t));if(!t)return;
   if(check(a,'WIS',['Hunter','Shaman','Farmer'].includes(a.comp.cls)?2:0,`Watching ${aname(b)}`)){
+    taxFocus(b,a,10);
     learnThought(t,'watching a '+b.comp.species);log(`  The vessel picked up "${TH[t].n}" from the way the ${b.comp.species} moves.`,'acc');
     // rare: a studied instinct becomes local civ heresy (world learns, vessel knowledge still dies with it)
     const site=RG.sites[RG.cur],slumber=typeof cyc!=='undefined'&&cyc.sq<.4,herP=slumber?.04:.12;
@@ -3143,7 +3288,7 @@ function leaveRemains(p){
   else if(ts.length)dropItem(bx,by,{t:'shard',th:PICK(ts)});
   const s=RG.sites[RG.cur];(s.fallen||(s.fallen=[])).push(p.comp.name);
   // world residue (not knowledge): scar the site, starve nearby stations the vessel built
-  s.scar=(s.scar||0)+1;s.res.food=Math.max(0,s.res.food-.04);s.res.mineral=Math.max(0,s.res.mineral-.03);
+  s.scar=(s.scar||0)+1;bumpAssembly(s,-1.2);splitNear(bx,by,8,['assemb']);s.res.food=Math.max(0,s.res.food-.04);s.res.mineral=Math.max(0,s.res.mineral-.03);
   for(const o of objs){if(!o.build||!o.mine)continue;if(o.life!=null){o.life=Math.min(o.life||0,40);if(o.sub!=='fire'&&o.sub!=='smoke')o.dark=1}if(o.sub==='press')o.cold=1}
   // crew residue: branded people become settler counts + meme seeds; pets bump grazers (actors wipe on newVessel)
   if(p===player){let branded=0;for(const f of actors){if(!f.follower||f.dead)continue;
@@ -3185,7 +3330,7 @@ function salvage(a,o){
   if(a.comp.cls==='Fixer')got.push(PICK(got));
   for(const m of got)addMat(a,m,1);
   if(seen(a))emit((o.x+.5)*TS,(o.y+.5)*TS,18,got.map(m=>MATS[m].c).concat(['#ffd27a']),60,.6);
-  if(a===player){stats.salvaged++;log(`${a.comp.name} disassembles ${o.name} → ${partsStr(null,got)}.`)}
+  if(a===player){stats.salvaged++;log(`${a.comp.name} disassembles ${o.name} → ${partsStr(null,got)}.`)}if(o.build&&RG){bumpAssembly(RG.sites[RG.cur],-.8);splitNear(o.x,o.y,4,['assemb'])}
   if(o.k==='art'&&o.civ&&a.faction==='player'){o.civ.grudge=(o.civ.grudge||0)+3;for(const m of actors)if(m.civ===o.civ){m.lastAttacker=a;m.lastHit=10}if(a===player)log(`  ${o.civ.name} will not forgive this.`,'bad')}
   if(o.build)rebuildEnv();
   if((o.sub==='beacon'||o.sub==='cairn')&&RG&&!objs.some(q=>q.sub==='beacon'||q.sub==='cairn'))RG.sites[RG.cur].marked=0;
@@ -3205,7 +3350,7 @@ function craft(a,plan){
   for(const m of p.picks)useMat(a,m);
   const roles=p.R.in.map(s=>s.r);
   if(seen(a)){emit(a.x*TS+a.face*4,a.y*TS,22,['#ffe6a0','#ffb040','#ffffff'],70,.45);bark(a,'made '+p.name,a===player?'good':'dim')}
-  if(a===player){stats.crafts++;gainXp(a,3)}
+  if(a===player){stats.crafts++;gainXp(a,3)}if(RG)bumpAssembly(RG.sites[RG.cur],.5);
   const g={t:'gear',slot:p.R.slot,kind:p.kind,name:p.name,st:p.st,parts:p.picks,roles};
   if(a===player)log(`${a.comp.name} assembles ${g.name} ⟨${partsStr(roles,p.picks)}⟩: ${gearDesc(g)}.`);
   considerGear(a,g);
@@ -4207,7 +4352,7 @@ function regionStep(){
     s.avail=siteAvail(s);
     if(s.id===cur)continue;
     const tot=s.N+s.Q+s.S,canRep=cm>=.5,av=s.avail;
-    const births=.22*s.N*av*(canRep?1:.3)*Math.max(0,1-tot/RK),eaten=Math.min(s.N,.014*s.N*s.Q);
+    const births=.22*s.N*av*(canRep?1:.3)*Math.max(0,1-tot/RK)*(1+Math.min(.4,(s.A||0)*.03)),eaten=Math.min(s.N,.014*s.N*s.Q);
     s.N+=births-eaten-s.N*(.02+(av<.15?.06:0));
     s.Q+=.3*eaten-s.Q*(.05+(eaten<.05*s.Q?.04:0));
     const settle=(av<.3?.04:.006)*s.N*.4;s.N-=settle;s.S+=settle;
@@ -4227,6 +4372,7 @@ function regionStep(){
     // scar weather: suppress fauna, then overshoot into bloom
     if((s.scar||0)>0){s.N=Math.max(0,s.N-s.scar*.012);s.Q=Math.max(0,s.Q-s.scar*.006);s.scarAge=(s.scarAge||0)+1;
       if(s.scarAge>55&&s.scar>=2&&RG.tick-(s.bloomT||-999)>70){s.bloomT=RG.tick;s.F=Math.min(18,s.F+2+Math.min(3,s.scar));s.scar=Math.max(0,s.scar-1);s.scarAge=0;announce('bloom',s.id,{site:s.name})}}
+    {const tgt=Math.min(ASM_MAX,(s.arts||0)*.6+(s.rite||0)*.4+Math.max(0,4-(s.scar||0)));s.A=clamp((s.A||0)+(tgt-(s.A||0))*.02,0,ASM_MAX);if((s.scar||0)>=2)bumpAssembly(s,-.02)}
     s.N=Math.max(0,s.N);s.Q=Math.max(0,s.Q);s.S=Math.max(0,s.S);
     if(s.N+s.Q<1&&canRep&&R()<.04)s.N+=2;
     // hunter floor: empty niches refill when grazers or plants are present (quickening fills faster)
@@ -4361,7 +4507,7 @@ function makeCreatureKind(x,y,kind,parent){
       if(R()<.08&&mind.length>4){const i=RI(0,mind.length-4);if(!['feed','breed','wander','migrate','graze','huntfood'].includes(mind[i])){muts.push('−'+TH[mind[i]].n);mind.splice(i,1)}}}}
   else{base=genBase(2+Math.floor(depth*.3),3+Math.min(6,depth));lvl=Math.max(1,Math.round(depth/2)+RI(-1,0));mind=K.mind.slice()}
   const c=makeActor({faction:'wild',x,y,comp,base,lvl,mind,role:K.role,energy:45+R()*40,age:parent?0:R()*80,gen:parent?parent.gen+1:1});
-  c.creature=true;c.flora=K.k==='flora';c.mut=muts.join(', ');return c;
+  c.creature=true;c.flora=K.k==='flora';c.compVec=competency(c);c.mut=muts.join(', ');return c;
 }
 function makeCreature(x,y,role,species,parent,civ){
   if(KIND[species])return makeCreatureKind(x,y,species,parent);
@@ -4420,6 +4566,8 @@ function instantiateSite(s){
   for(let k=0,n=Math.min(Math.round(s.N),faunaRoom('forager'));k<n;k++)spawnAt('forager',pickSpecies(s,'forager'));
   for(let k=0,n=Math.min(Math.max(Math.round(s.Q),s.N>=4?1:0),faunaRoom('predator'));k<n;k++)spawnAt('predator',pickSpecies(s,'predator'));
   if(!v)for(let k=0;k<Math.min(8,Math.round(s.S));k++)spawnAt('settler',pickSpecies(s,'settler'));
+  if((s.A||0)>=6&&(s.phase==='colonial'||s.phase==='complex'||s.phase==='competitive')&&R()<.55)assemblyWake(s);
+  if((s.A||0)<=4&&s.phase==='collapse'&&R()<.5)assemblySleep(s);
 }
 function syncSite(s){
   const live=actors.filter(a=>!a.dead&&a!==player&&!a.follower&&!a.construct);
@@ -4435,6 +4583,10 @@ function syncSite(s){
 let WALKS=[];
 function regionLive(){
   const s=RG.sites[RG.cur];syncSite(s);RG.inside=true;regionStep();
+  if((s.A||0)>=6&&(s.phase==='colonial'||s.phase==='complex'||s.phase==='competitive')&&R()<.22)assemblyWake(s);
+  if((s.A||0)<=4&&s.phase==='collapse'&&R()<.25)assemblySleep(s);
+  if(R()<.18){const live=actors.filter(b=>!b.dead&&b.creature&&b!==player&&!b.follower);for(let i=0;i<live.length;i++){for(let j=i+1;j<live.length;j++){if(Math.hypot(live[i].x-live[j].x,live[i].y-live[j].y)<2.4){if(coalesce(live[i],live[j]))break}}break}}
+  if(R()<.45)telegraphBonds();
   {const live=actors.filter(b=>!b.dead&&b.creature),gr=live.filter(b=>b.role==='forager').length,hu=live.filter(b=>b.role==='predator').length;
    if(gr>=5&&hu<Math.floor(gr/5)+1&&R()<.08&&exits.length){const src=exits.map(e=>RG.sites[e.to]).filter(o=>o.Q>=.8).sort((p,q)=>q.Q-p.Q)[0]||(R()<.4?PICK(exits.map(e=>RG.sites[e.to])):null);
      if(src){const ex=exits.find(e=>e.to===src.id);const c=spawnAt('predator',pickKindFrom(src,'predator'),ex.i);if(c){src.Q=Math.max(0,src.Q-1);c.energy=c.maxEnergy*.55;if(vis[ex.i]){bark(c,'arrives','dim');log(`A ${c.comp.species} slinks in through the duct from ${src.name}, drawn by the herds.`,'dim')}}}}}
@@ -4496,6 +4648,7 @@ function enterSite(id,from,fs){
   RG.inside=true;phase=s.phase;computeVis();arrivalFeel=1.2;
   $('vt').textContent=`${s.name}: ${s.type}, ${PH_NAME[phase]}`;
   log(`${s.name}, a ${s.type.toLowerCase()} site, tier ${s.tier}. ${PH_NAME[phase]}. ${phaseLine(s)}`,'acc');
+  log(`  ${assemblyFeel(s)}${(s.A||0)>=6&&(s.phase==='competitive'||s.phase==='colonial'||s.phase==='complex')?' The residue is ready to stir.':''}`,'dim');
   if(s.civ)log(`  ${s.civ.name} lives here${s.civ.grudge>0?', and holds a grudge against you':civAggressive(s.civ)?', and guards its ground':''}. Their ideas: ${[...s.civ.memes.keys()].map(t=>TH[t].n).join(', ')}.`,'dim');
   if(s.ruins.length)log(`  Ruins of ${s.ruins.map(r=>r.name).join(', ')}.`,'dim');
   if(!lvlCanvas)renderLevel();if(s.dun)s.dun.lvlCanvas=lvlCanvas;
@@ -4538,6 +4691,333 @@ function newVessel(){
   scheduleCampaignSave();
 }
 function abandon(){log(`${player.comp.name} is abandoned to the dark. Its body, gear and pack stay where it stood.`,'bad');leaveRemains(player);newVessel()}
+
+// ================================================================ multiplayer (host sim)
+let MpWorld=null;
+let worldSettings={pvp:false,maxPlayers:32,passwordHash:null,alwaysOn:false,remainsLockSec:600};
+function ensureMP(){
+  if(MpWorld)return MpWorld;
+  MpWorld={players:new Map(),hot:new Map(),_seq:0,votes:null,banned:new Set(),met:new Map(),hostPlayerId:null,connected:new Set()};
+  if(RG&&RG.inside){try{flushCurDun()}catch(e){}RG.inside=false}
+  return MpWorld;
+}
+function isVessel(a){return!!(a&&(a.isVessel||(a.faction==='player'&&a.ownerId&&!a.follower)))}
+function siteOf(a){
+  if(!MpWorld||!a)return RG?RG.cur:null;
+  for(const p of MpWorld.players.values()){
+    if(p.vessel===a||(p.followers||[]).includes(a))return p.siteId;
+  }
+  return null;
+}
+function captureSiteState(){
+  return{map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,lvlCanvas,ECHO,POWER,slick,
+    actors,WALKS,snareMap,sealMap,vis,LIGHT,HEAT,envLights,regrowList,conduitList,echoList,decor,phase,parts,floats,rings};
+}
+function applySiteState(st){
+  map=st.map;blk=st.blk;flr=st.flr;stock=st.stock;bmat=st.bmat;lights=st.lights;rooms=st.rooms;startRoom=st.startRoom;
+  objs=st.objs;explored=st.explored;exits=st.exits;lvlSeed=st.lvlSeed;lvlCanvas=st.lvlCanvas;ECHO=st.ECHO;POWER=st.POWER;slick=st.slick;
+  actors=st.actors;WALKS=st.WALKS;snareMap=st.snareMap;sealMap=st.sealMap;vis=st.vis;LIGHT=st.LIGHT;HEAT=st.HEAT;
+  envLights=st.envLights;regrowList=st.regrowList;conduitList=st.conduitList;echoList=st.echoList;decor=st.decor;phase=st.phase;
+  parts=st.parts||[];floats=st.floats||[];rings=st.rings||[];
+}
+function withSite(siteId,fn){
+  ensureMP();
+  const prevCur=RG.cur,prevInside=RG.inside,prevPlayer=player,prevVmem=vmem,prevSave=save,prevStats=stats,prevDepth=depth;
+  let prevHot=null;
+  if(RG.inside&&MpWorld.hot.has(RG.cur)){MpWorld.hot.set(RG.cur,captureSiteState())}
+  else if(RG.inside){try{flushCurDun()}catch(e){}}
+  const st=MpWorld.hot.get(siteId);
+  if(!st)throw new Error('withSite: site '+siteId+' not hot');
+  applySiteState(st);RG.cur=siteId;RG.inside=true;
+  try{return fn()}finally{
+    MpWorld.hot.set(siteId,captureSiteState());
+    if(prevHot=MpWorld.hot.get(prevCur)){applySiteState(prevHot);RG.cur=prevCur;RG.inside=prevInside}
+    else{RG.cur=prevCur;RG.inside=false}
+    player=prevPlayer;vmem=prevVmem;save=prevSave;stats=prevStats;depth=prevDepth;
+  }
+}
+function bindPlayerView(rec){
+  player=rec.vessel;vmem=rec.vmem;save=rec.save;stats=rec.stats;if(rec.siteId!=null)depth=(RG.sites[rec.siteId].tier|0)+1;
+}
+function mpHello(opts){
+  opts=opts||{};
+  ensureMP();
+  if(opts.token){
+    for(const p of MpWorld.players.values())if(p.token===opts.token||p.tokenHash===opts.token){
+      if(MpWorld.banned.has(p.id)||MpWorld.banned.has(p.token))return{error:'banned'};
+      MpWorld.connected.add(p.id);
+      return{playerId:p.id,token:p.token,vesselId:p.vessel.id,returning:true};
+    }
+  }
+  if(MpWorld.players.size>=(worldSettings.maxPlayers||32))return{error:'full'};
+  if(opts.name&&opts.password){
+    for(const p of MpWorld.players.values())if(p.claimName===opts.name){
+      if(p.claimPass!==opts.password)return{error:'bad_credentials'};
+      MpWorld.connected.add(p.id);
+      return{playerId:p.id,token:p.token,vesselId:p.vessel.id,returning:true};
+    }
+  }
+  const playerId='p'+(++MpWorld._seq);
+  const token=opts.token||('t_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36));
+  if(MpWorld.banned.has(token)||(opts.name&&MpWorld.banned.has(opts.name)))return{error:'banned'};
+  const comp=genComp();
+  if(opts.displayName)comp.name=String(opts.displayName).slice(0,32);
+  const st=starterThoughts(comp);
+  const vessel=makeActor({faction:'player',x:0,y:0,comp,base:genBase(4,7),mind:st.mind.slice(),energy:85});
+  vessel.ownerId=playerId;vessel.isVessel=true;
+  if(R()<.5){vessel.equip.hand=randGear('hand');giftAmmo(vessel,vessel.equip.hand)}
+  if(R()<.35)vessel.equip.tool=randGear('tool');
+  for(let i=0;i<3;i++)addMat(vessel,PICK(['scrap','cable','bone','glass','concrete']),1);
+  recalc(vessel);vessel.hp=vessel.maxHp;
+  const rec={id:playerId,token,tokenHash:token,displayName:comp.name,claimName:opts.name||null,claimPass:opts.password||null,
+    vessel,followers:[],vmem:{explored:new Map(),surveyed:new Set()},
+    save:{lib:st.lib.slice(),mind:st.mind.slice(),src:Object.assign({},st.src),best:1,newT:new Set()},
+    stats:{kills:0,crafts:0,salvaged:0,checks:0,t:0},siteId:null,stashed:false,lastX:null,lastY:null,
+    met:new Set(),crew:new Set(),party:!!opts.party};
+  MpWorld.players.set(playerId,rec);MpWorld.connected.add(playerId);
+  if(!MpWorld.hostPlayerId)MpWorld.hostPlayerId=playerId;
+  return{playerId,token,vesselId:vessel.id};
+}
+function setPlayerMind(playerId,mind){
+  ensureMP();
+  const rec=MpWorld.players.get(playerId);if(!rec)return false;
+  const m=(mind||[]).filter(t=>TH[t]);
+  rec.vessel.mind=m.slice();rec.save.mind=m.slice();
+  if(player===rec.vessel){save.mind=m.slice();fitMind(rec.vessel)}
+  else fitMind(rec.vessel);
+  return true;
+}
+function enterSiteFor(playerId,siteId,from){
+  ensureMP();
+  const rec=MpWorld.players.get(playerId);if(!rec||rec.stashed)return false;
+  siteId=siteId|0;
+  if(rec.siteId!=null&&rec.siteId!==siteId)leaveSiteFor(playerId);
+  if(MpWorld.hot.has(siteId)){
+    withSite(siteId,()=>{
+      bindPlayerView(rec);
+      let px=startRoom.cx,py=startRoom.cy;
+      if(from!=null){const arr=exits.find(e=>e.to===from);if(arr){const ax=arr.i%MW,ay=(arr.i/MW)|0;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]])if(walk(ax+dx,ay+dy)){px=ax+dx;py=ay+dy;break}}}
+      if(rec.lastX!=null&&walk(rec.lastX|0,rec.lastY|0)){px=rec.lastX|0;py=rec.lastY|0}
+      rec.vessel.x=px+.5;rec.vessel.y=py+.5;
+      Object.assign(rec.vessel,{intent:null,path:null,exT:null,busy:null,wT:null,hidden:false,focus:{},siteT:0});
+      if(!actors.includes(rec.vessel))actors.push(rec.vessel);
+      for(const f of rec.followers){if(!actors.includes(f)){f.x=rec.vessel.x;f.y=rec.vessel.y;actors.push(f)}}
+      explored=vesselExplored(siteId);
+    });
+  }else{
+    bindPlayerView(rec);
+    const keepParts=soupQuiet;
+    enterSite(siteId,from,rec.followers);
+    explored=vesselExplored(siteId);
+    MpWorld.hot.set(siteId,captureSiteState());
+    soupQuiet=keepParts;
+  }
+  rec.siteId=siteId;rec.lastX=rec.vessel.x;rec.lastY=rec.vessel.y;
+  RG.sites[siteId].visited=true;
+  return true;
+}
+function leaveSiteFor(playerId){
+  ensureMP();
+  const rec=MpWorld.players.get(playerId);if(!rec||rec.siteId==null)return false;
+  const siteId=rec.siteId;
+  rec.lastX=rec.vessel.x;rec.lastY=rec.vessel.y;
+  if(!MpWorld.hot.has(siteId)){rec.siteId=null;return true}
+  withSite(siteId,()=>{
+    actors=actors.filter(a=>a!==rec.vessel&&!(rec.followers||[]).includes(a));
+  });
+  rec.siteId=null;
+  const left=[...MpWorld.players.values()].filter(p=>p.siteId===siteId&&!p.stashed);
+  if(!left.length){
+    withSite(siteId,()=>{
+      bindPlayerView(rec);
+      RG.cur=siteId;RG.inside=true;
+      try{syncSite(RG.sites[siteId]);flushCurDun()}catch(e){}
+    });
+    MpWorld.hot.delete(siteId);
+  }
+  return true;
+}
+function despawnPlayer(playerId){
+  ensureMP();
+  const rec=MpWorld.players.get(playerId);if(!rec)return false;
+  if(rec.siteId!=null){
+    rec.lastX=rec.vessel.x;rec.lastY=rec.vessel.y;
+    const siteId=rec.siteId;
+    if(MpWorld.hot.has(siteId)){
+      withSite(siteId,()=>{actors=actors.filter(a=>a!==rec.vessel&&!(rec.followers||[]).includes(a))});
+      const left=[...MpWorld.players.values()].filter(p=>p.id!==playerId&&p.siteId===siteId&&!p.stashed);
+      if(!left.length){
+        withSite(siteId,()=>{RG.cur=siteId;RG.inside=true;try{flushCurDun()}catch(e){}});
+        MpWorld.hot.delete(siteId);
+      }
+    }
+    // keep siteId for respawn target
+  }
+  rec.stashed=true;MpWorld.connected.delete(playerId);
+  return true;
+}
+function respawnPlayer(playerId){
+  ensureMP();
+  const rec=MpWorld.players.get(playerId);if(!rec)return null;
+  rec.stashed=false;MpWorld.connected.add(playerId);
+  const siteId=rec.siteId!=null?rec.siteId:RG.start;
+  const from=null;
+  rec.siteId=null; // so enterSiteFor doesn't leave
+  enterSiteFor(playerId,siteId,from);
+  if(rec.lastX!=null&&MpWorld.hot.has(siteId)){
+    withSite(siteId,()=>{
+      if(walk(rec.lastX|0,rec.lastY|0)){rec.vessel.x=rec.lastX;rec.vessel.y=rec.lastY}
+    });
+  }
+  return{siteId:rec.siteId};
+}
+function updateAll(dt){
+  ensureMP();
+  if(!worldSettings.alwaysOn&&MpWorld.connected.size===0&&![...MpWorld.players.values()].some(p=>!p.stashed&&p.siteId!=null)){
+    // idle pause: do not advance
+    return;
+  }
+  const hotIds=[...MpWorld.hot.keys()];
+  if(!hotIds.length){
+    if(worldSettings.alwaysOn){gameTime+=dt;regAcc+=dt;if(regAcc>=2){regAcc=0;const was=RG.inside;RG.inside=false;regionStep();RG.inside=was}}
+    return;
+  }
+  gameTime+=dt;
+  for(const siteId of hotIds){
+    const vessels=[...MpWorld.players.values()].filter(p=>p.siteId===siteId&&!p.stashed);
+    if(!vessels.length)continue;
+    withSite(siteId,()=>{
+      bindPlayerView(vessels[0]);
+      gossipStep(dt);
+      if(floraEnvDirty&&(floraEnvT-=dt)<=0){floraEnvT=1;floraEnvDirty=false;rebuildEnv()}
+      visT-=dt;if(visT<=0){visT=.1;computeVis();updatePlayerStealth()}
+      const s=RG.sites[siteId];
+      cycleStep(dt);envStep(dt,s);
+      for(const a of actors)updActor(a,dt);
+      for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){
+        const A=actors[i],B=actors[j];if(A.dead||B.dead)continue;
+        const dx=B.x-A.x,dy=B.y-A.y;if(dx>.55||dx<-.55||dy>.55||dy<-.55)continue;const d=Math.hypot(dx,dy);
+        if(d<.55&&d>1e-4){const p=(.55-d)*.5,ux=dx/d*p,uy=dy/d*p;
+          if(walk((A.x-ux)|0,(A.y-uy)|0)){A.x-=ux;A.y-=uy}if(walk((B.x+ux)|0,(B.y+uy)|0)){B.x+=ux;B.y+=uy}}
+      }
+      actors=actors.filter(a=>!a.dead||isVessel(a));
+      for(const v of vessels){v.lastX=v.vessel.x;v.lastY=v.vessel.y;v.stats.t+=dt}
+    });
+  }
+  regAcc+=dt;
+  if(regAcc>=2){
+    regAcc=0;
+    for(const siteId of [...MpWorld.hot.keys()]){
+      withSite(siteId,()=>{const vessels=[...MpWorld.players.values()].filter(p=>p.siteId===siteId&&!p.stashed);if(vessels[0])bindPlayerView(vessels[0]);syncSite(RG.sites[siteId])});
+    }
+    const was=RG.inside;RG.inside=false;regionStep();RG.inside=was;
+  }
+}
+function saveCampaignBlob(){
+  if(!RG)return null;
+  try{
+    if(MpWorld&&MpWorld.hot.size){for(const siteId of MpWorld.hot.keys())withSite(siteId,()=>{flushCurDun()})}
+    else if(RG.inside)flushCurDun();
+    const civs=RG.civs.map(serializeCiv);
+    const sites=RG.sites.map(s=>{
+      return{id:s.id,x:s.x,y:s.y,nb:s.nb,name:s.name,type:s.type,tier:s.tier,base:s.base,res:s.res,N:s.N,Q:s.Q,S:s.S,F:s.F,
+        sp:s.sp,arts:s.arts,ruins:s.ruins,read:s.read,seed:s.seed,collapseT:s.collapseT,warT:s.warT,phase:s.phase,cx:s.cx,avail:s.avail,reg:s.reg,
+        dun:serializeSiteDun(s.dun),dunPowered:s.dunPowered||0,civ:s.civ?s.civ.id:null,km:s.km||null,
+        visited:!!s.visited,heardOf:!!s.heardOf,lastVisit:s.lastVisit,marked:s.marked,fallen:s.fallen||[],pulseT:s.pulseT,
+        scar:s.scar||0,scarAge:s.scarAge||0,crew:s.crew||0,bloomT:s.bloomT,fallSeed:s.fallSeed||null,fallReg:s.fallReg||null,clearT:s.clearT,newsHot:s.newsHot,
+        rite:s.rite||0,A:s.A||0,sealTo:[...(s.sealTo instanceof Set?s.sealTo:(s.sealTo||[]))]};
+    });
+    const players=MpWorld?[...MpWorld.players.values()].map(p=>({
+      id:p.id,token:p.token,displayName:p.displayName,claimName:p.claimName,claimPass:p.claimPass,
+      siteId:p.siteId,stashed:!!p.stashed,lastX:p.lastX,lastY:p.lastY,party:!!p.party,
+      save:{lib:p.save.lib,mind:p.save.mind,src:p.save.src,best:p.save.best,newT:[...(p.save.newT||[])]},
+      vmem:serializeVmem(p.vmem),stats:p.stats,
+      vessel:serializeActor(p.vessel),followers:(p.followers||[]).map(serializeActor),
+      met:[...p.met],crew:[...p.crew]
+    })):null;
+    return{ver:2,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:false},
+      cyc,newsId,nextId,gameTime,meta:{best:save.best},settings:Object.assign({},worldSettings,{banned:[...(MpWorld?MpWorld.banned:[])]}),
+      players,vessel:player&&!MpWorld?{save:{lib:save.lib,mind:save.mind,src:save.src,best:save.best,newT:[...(save.newT||[])]},
+        vmem:serializeVmem(vmem),heardN:[...heardN],scanned:[...scanned],tileFeed:[...tileFeed],stats,depth,
+        player:serializeActor(player),followers:followers().map(serializeActor)}:null};
+  }catch(e){console.warn('saveCampaignBlob failed',e);return null}
+}
+function loadCampaignBlob(raw){
+  if(!raw||!raw.RG||!raw.RG.sites||!raw.RG.sites.length)return false;
+  bootingCampaign=true;
+  try{
+    newsId=raw.newsId||0;nextId=raw.nextId||1;gameTime=raw.gameTime||0;cyc=raw.cyc||cyc;
+    if(raw.settings)Object.assign(worldSettings,raw.settings);
+    if(raw.meta&&raw.meta.best)save.best=Math.max(save.best,raw.meta.best);
+    const civById=new Map((raw.RG.civs||[]).map(c=>{const v=reviveCiv(c);return[v.id,v]}));
+    const sites=raw.RG.sites.map(s=>{
+      const dun=reviveSiteDun(s.dun);
+      if(dun)dun.objs=dun.objs.map(o=>reviveObj(o,civById));
+      const site={...s,dun,civ:s.civ!=null?civById.get(s.civ)||null:null,ruins:s.ruins||[],read:s.read||[],fallen:s.fallen||[],nb:s.nb||[],sealTo:new Set(s.sealTo||[]),rite:s.rite||0,scarAge:s.scarAge||0};
+      if(s.km)site.km=s.km;return site;
+    });
+    RG={sites,start:raw.RG.start,cur:raw.RG.cur,prev:raw.RG.prev,tick:raw.RG.tick||0,civs:[...civById.values()],
+      crit:raw.RG.crit||0,news:raw.RG.news||[],events:[],flowIn:[],flowOut:[],inside:false};
+    MpWorld=null;ensureMP();
+    if(raw.settings&&raw.settings.banned)for(const b of raw.settings.banned)MpWorld.banned.add(b);
+    if(raw.players&&raw.players.length){
+      for(const pr of raw.players){
+        const vessel=reviveActor(pr.vessel);vessel.ownerId=pr.id;vessel.isVessel=true;
+        const followers=(pr.followers||[]).map(reviveActor);
+        const rec={id:pr.id,token:pr.token,tokenHash:pr.token,displayName:pr.displayName,claimName:pr.claimName,claimPass:pr.claimPass,
+          vessel,followers,vmem:reviveVmem(pr.vmem||{explored:[],surveyed:[]}),
+          save:{lib:pr.save.lib||START_LIB.slice(),mind:pr.save.mind||DEFAULT_MIND.slice(),src:pr.save.src||{},best:pr.save.best||1,newT:new Set(pr.save.newT||[])},
+          stats:pr.stats||{kills:0,crafts:0,salvaged:0,checks:0,t:0},siteId:pr.siteId,stashed:pr.stashed!==false,lastX:pr.lastX,lastY:pr.lastY,
+          met:new Set(pr.met||[]),crew:new Set(pr.crew||[]),party:!!pr.party};
+        MpWorld.players.set(pr.id,rec);MpWorld._seq=Math.max(MpWorld._seq,parseInt(String(pr.id).replace(/\D/g,''),10)||0);
+      }
+    }else if(raw.vessel&&raw.vessel.player){
+      const vs=raw.vessel;
+      save.lib=vs.save.lib||START_LIB.slice();save.mind=vs.save.mind||DEFAULT_MIND.slice();save.src=vs.save.src||{};
+      save.best=Math.max(save.best,vs.save.best||1);save.newT=new Set(vs.save.newT||[]);
+      vmem=reviveVmem(vs.vmem||{explored:[],surveyed:[]});
+      player=reviveActor(vs.vessel||vs.player);player.isVessel=true;player.ownerId='solo';
+      enterSite(RG.cur,RG.prev,(vs.followers||[]).map(reviveActor));
+    }
+    bootingCampaign=false;return true;
+  }catch(e){console.warn('loadCampaignBlob failed',e);RG=null;bootingCampaign=false;return false}
+}
+function importCampaignBlob(raw){
+  if(!loadCampaignBlob(raw))return false;
+  ensureMP();
+  if(!MpWorld.players.size&&player){
+    const id='p1';MpWorld._seq=1;
+    const rec={id,token:'t_import_'+Date.now().toString(36),tokenHash:null,displayName:player.comp.name,claimName:null,claimPass:null,
+      vessel:player,followers:followers(),vmem,save:{lib:save.lib.slice(),mind:save.mind.slice(),src:Object.assign({},save.src),best:save.best,newT:new Set(save.newT||[])},
+      stats:Object.assign({},stats),siteId:RG.cur,stashed:false,lastX:player.x,lastY:player.y,met:new Set(),crew:new Set(),party:true};
+    player.ownerId=id;player.isVessel=true;rec.tokenHash=rec.token;
+    MpWorld.players.set(id,rec);MpWorld.hostPlayerId=id;MpWorld.hot.set(RG.cur,captureSiteState());
+  }
+  return true;
+}
+function hostTick(dt){return updateAll(dt)}
+function pvpAllows(){return!!(worldSettings&&worldSettings.pvp)}
+function canLootRemains(looterId,rem){
+  if(!rem)return false;
+  if(pvpAllows())return true;
+  if(!rem.ownerId)return true;
+  if(rem.ownerId===looterId)return true;
+  const lockedUntil=rem.lootT||0;
+  return gameTime>=lockedUntil;
+}
+function partyPresence(viewerId){
+  ensureMP();
+  const v=MpWorld.players.get(viewerId);if(!v)return[];
+  const out=[];
+  for(const p of MpWorld.players.values()){
+    if(p.id===viewerId||p.stashed||p.siteId==null)continue;
+    const sameParty=v.party&&p.party;
+    const crewed=v.crew.has(p.id)||p.crew.has(v.id);
+    const met=v.met.has(p.id)||p.met.has(v.id);
+    if(sameParty||crewed||met)out.push({id:p.id,name:p.displayName,siteId:p.siteId});
+  }
+  return out;
+}
 
 // ================================================================ update
 function updActor(a,dt){
@@ -5423,7 +5903,16 @@ function mindChanged(){if(player.mind.includes('guard')&&!player.anchor)player.a
 function learnThought(t,src){if(save.lib.includes(t))return;bark(player,'"'+TH[t].n+'"','idea');save.lib.push(t);save.src[t]=src;(save.newT||(save.newT=new Set())).add(t);libSig='';starT=0;renderLib();flashPanel('p-lib');autoPause('thought',`learned "${TH[t].n}"`)}
 function renderMindAndLib(){renderMind();renderLib()}
 // ---------------------------------------------------------------- the contextual card
-function describeActor(a){const C=a.comp,D=dietOf(a);return`${C.name}, ${C.species}${a.role&&a!==player?' '+(a.civ?'of '+a.civ.name:a.role):''}. HP ${Math.max(0,Math.ceil(a.hp))}/${a.maxHp}, energy ${Math.round(a.energy)}. Feeds on ${D.src}.`}
+function describeActor(a){
+  const C=a.comp,D=dietOf(a);
+  let t=`${C.name}, ${C.species}${a.role&&a!==player?' '+(a.civ?'of '+a.civ.name:a.role):''}. HP ${Math.max(0,Math.ceil(a.hp))}/${a.maxHp}, energy ${Math.round(a.energy)}. Feeds on ${D.src}.`;
+  if(a.creature||(a.comp&&KIND[a.comp.species])){
+    t+=` It ${habitFeel(a)}.`;
+    if(a.fromAssembly)t+=' Stirred from the yard\'s residue.';
+    if((a._coalesceParts||1)>=2&&a.bondSpace&&BOND_SAY[a.bondSpace])t+=` Held as ${BOND_SAY[a.bondSpace]} (${a._coalesceParts}).`;
+  }
+  return t;
+}
 function describeObj(o){
   if(o.vessel)return`${o.name}: ${player&&o.vessel===player.comp.name?'yours':'a past vessel fell here'}`;
   if(o.k==='asm'&&o.build){let extra='';if(o.sub==='rack'){const bits=Object.entries(o.store||{}).filter(([,n])=>n).map(([m,n])=>n+' '+MATS[m].n);extra=bits.length?': '+bits.join(', '):': empty'}if((o.sub==='lamp'||o.sub==='beacon')&&o.life<9000)extra+=(o.dark?', dark':`, fuel ${Math.max(0,Math.round(o.life))}s`);if(o.sub==='press')extra+=o.cold?', cold':', hot';if((o.sub==='meter'||o.sub==='badge'||o.sub==='chill'||o.sub==='incubator')&&o.life<9000)extra+=(o.dark?', dark':`, ${Math.max(0,Math.round(o.life))}s`);return`${o.name}${extra}${o.sub==='snare'?` (${o.uses} uses left)`:''}${(o.sub==='fire'||o.sub==='smoke')&&o.life<9000?`, burns ${Math.round(o.life)}s more`:''}${o.mine?(o.by&&player&&o.by!==player.comp.name?`, built by ${o.by}, a past vessel`:', built by you'):o.owner?', built by '+o.owner.name:''}${o.feed&&o.feed.length?', holds a feed you read':''}`}
@@ -5701,7 +6190,8 @@ $('reg').addEventListener('click',e=>{const s=siteAt(e);if(s){regSel=s;drawRegio
 $('reg').addEventListener('mousemove',e=>{const s=siteAt(e);if(s&&s!==regSel){regSel=s;drawRegion()}});
 function describeSite(s){
   if(!siteKnown(s))return`${s.name}, tier ${s.tier}: unknown ${s.type.toLowerCase()} site.`;
-  return`${s.name}, ${s.type}, tier ${s.tier}: ${PH_NAME[s.phase]}${s.visited?', visited':''}. About ${Math.round(s.N)} foragers, ${Math.round(s.Q)} hunters, ${Math.round(s.S)} settlers; mostly ${topSpecies(s)}.${s.civ?` ${s.civ.name}: ${[...s.civ.memes.keys()].map(t=>TH[t].n).join(', ')}${s.civ.grudge>0?' (hostile to you)':''}.`:''}${s.ruins.length?` Ruins of ${s.ruins.map(r=>r.name).join(', ')}.`:''}`;
+  const wake=(s.A||0)>=6&&(s.phase==='competitive'||s.phase==='colonial'||s.phase==='complex')?' The residue is ready to stir.':'';
+  return`${s.name}, ${s.type}, tier ${s.tier}: ${PH_NAME[s.phase]}${s.visited?', visited':''}. About ${Math.round(s.N)} foragers, ${Math.round(s.Q)} hunters, ${Math.round(s.S)} settlers; mostly ${topSpecies(s)}. ${assemblyFeel(s)}${wake}${s.civ?` ${s.civ.name}: ${[...s.civ.memes.keys()].map(t=>TH[t].n).join(', ')}${s.civ.grudge>0?' (hostile to you)':''}.`:''}${s.ruins.length?` Ruins of ${s.ruins.map(r=>r.name).join(', ')}.`:''}`;
 }
 // ---------------------------------------------------------------- tick
 let idleHinted=-1;
@@ -5990,7 +6480,7 @@ function saveCampaign(){
         dun:serializeSiteDun(s.dun),dunPowered:s.dunPowered||0,civ:s.civ?s.civ.id:null,km:s.km||null,
         visited:!!s.visited,heardOf:!!s.heardOf,lastVisit:s.lastVisit,marked:s.marked,fallen:s.fallen||[],pulseT:s.pulseT,
         scar:s.scar||0,scarAge:s.scarAge||0,crew:s.crew||0,bloomT:s.bloomT,fallSeed:s.fallSeed||null,fallReg:s.fallReg||null,clearT:s.clearT,newsHot:s.newsHot,
-        rite:s.rite||0,sealTo:[...(s.sealTo instanceof Set?s.sealTo:(s.sealTo||[]))]};
+        rite:s.rite||0,A:s.A||0,sealTo:[...(s.sealTo instanceof Set?s.sealTo:(s.sealTo||[]))]};
     });
     const blob={ver:1,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:!!RG.inside},
       cyc,newsId,nextId,gameTime,meta:{best:save.best},

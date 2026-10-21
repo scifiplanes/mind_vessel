@@ -80,11 +80,13 @@ The script is one `<script>` block, organised in banner-commented sections (sear
 
 **Three Registers of Work.** Soft technique weights on every site (`site.reg` / `SITE_REG`): **Bone** (smoke, hide, grit, rite), **Plate** (scrap, steam, stamp, meter), **Lease** (live lines, badge, wet lab). Not eras — coexisting solutions to the same problems. Early tiers bias Bone sites, mid Plate, deep Lease. `ideaPool`, machines, nodes, encounters, and kind mixes follow register weights via `pickByReg` / `primaryReg`.
 
-**Region.** Sites have type (~34 biomes across the three registers, including Pit/Crypt, Furnace/Shaft, Vault/Atrium), resources, populations (N grazers, Q hunters, S settlers, F growth), species and kind mixes, civilizations whose ideas are Thoughts (they mutate, spread at contact, schism, merge, war, transcend, fall), and cycles (Dimming/Warming, Slumber/Quickening). Site *phase* (primordial, competitive, colonial, complex, collapse) is shown diegetically (arrival impression plus air tint and particles).
+**Region.** Sites have type (~34 biomes across the three registers, including Pit/Crypt, Furnace/Shaft, Vault/Atrium), resources, populations (N grazers, Q hunters, S settlers, F growth), species and kind mixes, civilizations whose ideas are Thoughts (they mutate, spread at contact, schism, merge, war, transcend, fall), and cycles (Dimming/Warming, Slumber/Quickening). Site *phase* (primordial, competitive, colonial, complex, collapse) is shown diegetically (arrival impression plus air tint and particles). Site assembly field `A` (0–24) tracks construction depth; persisted in campaign save.
+
+**Ecology systems** (generative rules — not scenario KINDs): `bumpAssembly` / site `A`; `competency` / `hasComp` over spaces `morpho|metabo|grad|auto|assemb|nomos|attento|socio` (derived from role + KIND props); `faunaRoom` caps drinkers from gradients+`A` and police from drinker density; `taxFocus` / `refundFocus` (STUDY wires a transfer); clearance weather as ambient via `ambient`/`absorb` for `nomos`; `assemblyWake` / `assemblySleep` residue LOD (`A≥6`, phases competitive/colonial/complex); `coalesce` / `split` / `splitNear` with **bond space** (`bondSpaceFor` / `domBond` over `auto|grad|metabo|assemb|nomos` — dominant match, flora only on `grad`). Split filters: seal/chill→`auto|grad`, linecut/breaker→`nomos|metabo`, scar/dismantle→`assemb`. **Telegraphing:** `assemblyFeel` on enter + site cards; habit / held-as / residue on actor cards + `aname`; near-miss `telegraphBonds` (“lean toward one mouth…”); slog when `A` first crosses wake depth. Roles `plant|forager|predator` remain soft population buckets. Tests: `tests/t7-ecology.js`.
 
 **People.** Civilization members and settlers have full components. They extract, refine, build, tame animals, trade, listen, preach (to each other and to the vessel; preaching can add a Thought to your Library), gossip news (more if they carry social Thoughts), and dig more room around home.
 
-**Creatures** (`KIND`): no culture, class, faith, sign or civilization; Minds of instincts; never transfer Thoughts. Core fauna plus register-native kinds (Bone: Tallowrat, Cairnworm, …; Plate: Gasketmite, Valvehound, …; Lease: Badgefly, Tokenwight, …). Flora (rooted): Moldbloom, Glowcap, Pipevine, Lichen, and later register plants. Plants feed from their tile and spread; grazers `GRAZE` them; hunters hunt grazers. Grazers are capped by plants, hunters by grazers (`faunaRoom`, Bone/Lease bias hunters higher); `regionStep` refills empty hunter niches. The vessel learns instincts by `STUDY` (watching; WIS check); creature-only Thoughts: Graze, Skitter, Play Dead, Carrion Sense.
+**Creatures** (`KIND`): no culture, class, faith, sign or civilization; Minds of instincts; never transfer Thoughts. Core fauna plus register-native kinds (Bone: Tallowrat, Cairnworm, …; Plate: Gasketmite, Valvehound, …; Lease: Badgefly, Tokenwight, …). Flora (rooted): Moldbloom, Glowcap, Pipevine, Lichen, and later register plants. Plants feed from their tile and spread; grazers `GRAZE` them; hunters hunt grazers. Grazers are capped by gradient-bearing growth and site `A`, hunters by grazers (`faunaRoom`, Bone/Lease bias hunters higher); `regionStep` refills empty hunter niches. The vessel learns instincts by `STUDY` (watching; WIS check; also `taxFocus` from the creature); creature-only Thoughts: Graze, Skitter, Play Dead, Carrion Sense.
 
 **News.** NPC gossip (`gossipStep`): full text if the vessel carries a social Thought (Listen, Barter, Proselytize), otherwise fragments («…war… Silo Hesk…»). Read the Feeds (`SCAN`) reads terminals and powered panels or conduits for region-wide news (cooldowns). Heard news marks sites on the map and makes them pulse. Big events (`announce`) can mention register bits (`{bit}` / `{reg}`: smoke / stamp / badge).
 
@@ -114,30 +116,27 @@ The script is one `<script>` block, organised in banner-commented sections (sear
 ## 6. Testing
 
 ```
-cd tests
-npm install          # jsdom 24.1.3
-./run-all.sh         # all suites, PASS/FAIL counts
-node t21.js          # one suite
-node extract.js && node play.js 6 5   # older stub-DOM gameplay harness: 6 vessels × 5 minutes
+npm install
+npm test                 # all suites (tests/t*.js + server/relay/net tests)
+node tests/t0-harness.js # one suite
+npm run extract && node --check sim/game.js
 ```
 
-`dom.js` loads the HTML into jsdom with a stub canvas, fake `matchMedia` and fixed element sizes, and exposes internals as `g.*` (see the long `.replace("newVessel();updFk();uiTick();", …)` at the top). Options: `{w,h,narrow,simple,file}`. Suites default to Detailed mode unless `simple:true`. Many suites fake `performance.now` so real-time features (toasts, barks, cooldowns) advance with game time.
+[`tests/harness/dom.js`](tests/harness/dom.js) loads the HTML into jsdom with a stub canvas, fake `matchMedia` and fixed element sizes, patches boot (no rAF / startup dialog), and exposes internals as `g` / `window.__MV_G`. Options: `{w,h,simple,file}`.
 
 | Suite | Covers |
 |---|---|
-| t1, t4, t5 | Detailed UI: dock, drawer, cards, menu, phone sheet, edge cases (death, travel, vanishing targets), three layouts and live resize |
-| t6 | duct markers and travel routes in the Mind |
-| t8 | news: NPC gossip (full vs fragments), feeds, map links, log autoscroll |
-| t11 | stat, trait and ability cards |
-| t12 | auto-restart |
-| t13, t17 | creatures: food web per site type, study, grazing, glow, thorns, kind migration |
-| t18, t19 | campaign persistence, per-vessel knowledge, remains, map-sharing verbs |
-| t20 | debug panel, click-to-close cards |
-| t21–t25 | Simple mode: rows, verb strips, Library, cards, equipping per layout, gap fixes, vessel card, site-state impression |
+| t0-harness | load game, `update`, campaign blob |
+| t1-multisite | multi-vessel / multi-site / despawn / respawn / Mind edit |
+| t5-rules | identity, votes, PvP/remains, party, signals, ban |
+| t6-ux | Join menu / net client hooks / solo intact |
+| t7-ecology | assembly `A`, competency, caps, taxFocus, clearance ambient, wake/sleep, coalesce |
+| server/worldFile.test | world file + import + idle pause |
+| server/host.test | hello / mind.set / maxPlayers / site isolation |
+| relay/relay.test | join codes, password, multiplex |
+| net/protocol.test | encode/decode |
 
-Some numbers in the suites are statistical (ecosystem counts, gossip rates). Rerun before treating a single failure as a regression.
-
-**Not verified headlessly:** real rendering. Glyph legibility at 14 px, tints and particle strength, card placement near screen edges, touch gestures on a real phone.
+**Not verified headlessly:** real rendering; full two-browser relay playtest (manual: see §8).
 
 ---
 
@@ -186,7 +185,33 @@ Shipped in-repo max content expansion, then a full follow-up (A–F slices), the
 - **G — Pilgrimage close:** condition `pilgrimPack`; cross-register refine → mark + `pilgrim` news; patience/travel bias with goods; Pilgrim/Merchant Broads + Thought `goodsroad`.
 - **Content:** eleven Thoughts; news `grudge` / `shard` / `pilgrim`; COND_G for new preds; seeds updated. Campaign keys unchanged.
 
-## 8. Known issues and open tasks
+## 8. Multiplayer (self-hosted)
+
+Valheim-style: browser **clients**, Node **host** (listen = dedicated), optional **join-code relay** (host dials outbound).
+
+```
+npm install
+npm test                 # harness + suites
+npm run relay            # ws://127.0.0.1:7474
+npm run host -- --world worlds/demo.json --relay ws://127.0.0.1:7474
+# In the game: ☰ → Join multiplayer… → paste join code
+# Direct (no relay): npm run host -- --port 7777  then Join ws://127.0.0.1:7777
+```
+
+| Piece | Path |
+|---|---|
+| Sim MP APIs | `MpWorld` in `mind-vessel.html` (`ensureMP`, `enterSiteFor`, `updateAll`, …) |
+| Protocol | [`net/protocol.js`](net/protocol.js) |
+| Host | [`server/host.js`](server/host.js) + [`server/hostCore.js`](server/hostCore.js) |
+| World files | [`server/worldFile.js`](server/worldFile.js) (`ver: 2` + `players[]`) |
+| Relay | [`relay/server.js`](relay/server.js) |
+| Client UI | ☰ Join / vote / signal; Mind edits → `mind.set` when connected |
+
+**Rules (locked):** multi-site vessels; reconnect by token (+ optional name/password); disconnect despawns vessel+followers; PvP world flag (default off); remains owner-locked 600s when PvP off; pause/speed by vote (host override); fog personal; party map via password-party or meet+crew; diegetic signals; kick+ban; solo `localStorage` unchanged; `--import-campaign` promotes a solo blob.
+
+**Tests:** `tests/t0-harness.js` … `t6-ux.js`, `server/*.test.js`, `relay/relay.test.js`, `net/protocol.test.js`. Harness: [`tests/harness/dom.js`](tests/harness/dom.js).
+
+## 9. Known issues and open tasks
 
 - **Normal lighting** is experimental (F9 → Normal maps). Level bake can hitch on site enter; CPU N·L is heavier than the classic veil. Replace the JS port with an upstream WASM build when a Rust toolchain is available if bit-identical output matters.
 - **Campaign save size:** many visited dungeons can approach `localStorage` quotas; if save fails, check the console warn. Consider pruning never-revisited duns later.
@@ -197,9 +222,9 @@ Shipped in-repo max content expansion, then a full follow-up (A–F slices), the
 - **Simple mode on phones:** the collapsed sheet still shows a one-line text summary. Simple mode has no log view by design.
 - **Glyphs** need a visual pass in a real browser.
 
-## 9. Working conventions used so far
+## 10. Working conventions used so far
 
 - Edit `mind-vessel.html` directly; it is the single source of truth. Back it up before large patches.
-- After any change: `node --check` on the extracted script (`node extract.js && node --check game.js`), then the relevant suites.
+- After any change: `npm run extract && node --check sim/game.js`, then `npm test`.
 - Measure gameplay changes headlessly (rates per minute, populations over time) before and after, and report the numbers.
 - Before shipping a visual change, prefer in-world representation; in Simple mode avoid adding UI words.

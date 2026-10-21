@@ -1,0 +1,21 @@
+{
+  "name": "mind-vessel",
+  "private": true,
+  "version": "0.2.0",
+  "description": "MIND//VESSEL — solo browser game + self-hosted multiplayer",
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "extract": "node tests/harness/extract.js",
+    "host": "node server/host.js",
+    "relay": "node relay/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  }
+}
