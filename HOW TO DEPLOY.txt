@@ -1,0 +1,57 @@
+MIND//VESSEL — host on Fly.io (always on)
+=========================================
+
+Live app (already deployed):
+   https://mind-vessel.fly.dev/
+
+Friends join that link. No Host.app, no tunnel, no same Wi‑Fi.
+
+
+IF YOU NEED TO RECREATE
+-----------------------
+1. Account: https://fly.io/app/sign-up
+2. CLI: brew install flyctl
+3. fly auth login
+4. fly launch --no-deploy --copy-config --name mind-vessel
+5. fly volumes create mind_vessel_data --region lhr --size 1
+6. fly deploy
+
+
+AFTER DEPLOY / DAILY USE
+------------------------
+   fly open
+
+Lobby:
+   https://mind-vessel.fly.dev/
+
+Invite friends (or lobby → Copy worldwide invite):
+   https://mind-vessel.fly.dev/play?ws=wss%3A%2F%2Fmind-vessel.fly.dev
+
+
+UPDATES
+-------
+   fly deploy
+
+
+LOGS / STOP
+-----------
+   fly logs
+   fly scale count 0          # pause (stops billing compute)
+   fly scale count 1          # resume
+
+
+OPTIONAL PASSWORD
+-----------------
+   fly secrets set HOST_EXTRA="--password yoursecret"
+   (then wire HOST_EXTRA in start if you add it — or redeploy with
+   CMD override; simplest: edit worlds locally and use Mac host.)
+
+   For a password today, set it when starting locally; cloud
+   password support can be added via fly secrets later.
+
+
+COST
+----
+Fly free allowance may cover a small always-on 1GB shared VM.
+auto_stop is off so the world stays up for friends.
+Scale to 0 when you don’t need it.

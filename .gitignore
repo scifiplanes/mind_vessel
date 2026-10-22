@@ -2,6 +2,7 @@ node_modules/
 sim/game.js
 worlds/*.json
 !worlds/.gitkeep
+tools/bin/
 .DS_Store
 *.log
 .cursor/debug*.log

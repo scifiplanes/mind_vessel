@@ -8,7 +8,19 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { WebSocketServer, WebSocket } = require('ws');
+
+function lanIps() {
+  const out = [];
+  for (const nets of Object.values(os.networkInterfaces())) {
+    for (const n of nets || []) {
+      const fam = n.family;
+      if ((fam === 'IPv4' || fam === 4) && !n.internal) out.push(n.address);
+    }
+  }
+  return out;
+}
 const { encode, decode } = require('../net/protocol');
 const { saveWorld, loadWorld, importSoloCampaign } = require('./worldFile');
 const { createHost } = require('./hostCore');
@@ -39,6 +51,9 @@ async function bootGame() {
 async function main() {
   const args = parseArgs(process.argv);
   const g = await bootGame();
+  // Harness boots paused for tests — the live host must run the sim
+  g.paused = false;
+  g.speed = g.speed || 1;
   Object.assign(g.worldSettings, {
     alwaysOn: args.alwaysOn,
     pvp: args.pvp,
@@ -60,15 +75,19 @@ async function main() {
   const sockets = new Map(); // playerId -> ws
   const pending = new Map(); // ws -> temp
 
+  function findWs(playerId) {
+    const bound = sockets.get(playerId);
+    if (bound && bound.readyState === WebSocket.OPEN) return bound;
+    for (const [ws2, meta] of pending) {
+      if ((meta.tempId === playerId || meta.playerId === playerId) && ws2.readyState === WebSocket.OPEN) return ws2;
+    }
+    return null;
+  }
+
   const host = createHost(g, {
     send(playerId, msg) {
-      const ws = sockets.get(playerId);
-      if (ws && ws.readyState === WebSocket.OPEN) ws.send(encode(msg));
-      else {
-        for (const [ws2, meta] of pending) {
-          if (meta.tempId === playerId && ws2.readyState === WebSocket.OPEN) ws2.send(encode(msg));
-        }
-      }
+      const ws = findWs(playerId);
+      if (ws) ws.send(encode(msg));
     },
     broadcast(msg, except) {
       for (const [id, ws] of sockets) {
@@ -80,12 +99,23 @@ async function main() {
   function attachWs(ws, role) {
     let playerId = null;
     const tempId = 'tmp_' + Math.random().toString(36).slice(2, 8);
-    pending.set(ws, { tempId, role });
+    pending.set(ws, { tempId, role, playerId: null });
     ws.on('message', data => {
       try {
         const msg = decode(data);
         if (msg.t === 'hello') {
-          const id = host.onMessage(msg, { playerId: null, tempId, ws });
+          // Bind socket before welcome is sent (welcome uses playerId, not tempId)
+          const id = host.onMessage(msg, {
+            playerId: null,
+            tempId,
+            ws,
+            bind(playerIdBound) {
+              playerId = playerIdBound;
+              sockets.set(playerIdBound, ws);
+              const meta = pending.get(ws);
+              if (meta) meta.playerId = playerIdBound;
+            },
+          });
           if (id) {
             playerId = id;
             sockets.set(id, ws);
@@ -119,6 +149,7 @@ async function main() {
   }
 
   let joinCode = null;
+  let publicUrl = null; // https://….trycloudflare.com (set by start.js tunnel)
   const ROOT = path.resolve(__dirname, '..');
   const lobbyHtml = fs.readFileSync(path.join(__dirname, 'lobby.html'), 'utf8');
   const gameHtmlPath = path.join(ROOT, 'mind-vessel.html');
@@ -196,6 +227,15 @@ async function main() {
 
   function statusJson() {
     const mp = g.MP;
+    const ips = lanIps();
+    const port = args.port;
+    let globalInvite = null;
+    let globalWs = null;
+    if (publicUrl) {
+      const base = publicUrl.replace(/\/$/, '');
+      globalWs = base.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
+      globalInvite = `${base}/play?ws=${encodeURIComponent(globalWs)}`;
+    }
     return {
       code: joinCode,
       relay: args.relay || null,
@@ -203,7 +243,16 @@ async function main() {
       players: mp ? mp.connected.size : 0,
       worldName: args.world ? path.basename(args.world, '.json') : 'memory',
       gameUrl: '/play',
-      wsDirect: 'ws://127.0.0.1:' + args.port,
+      port,
+      wsLocal: 'ws://127.0.0.1:' + port,
+      wsDirect: 'ws://127.0.0.1:' + port,
+      lanIps: ips,
+      // Friends on the same Wi‑Fi open this (direct to host, not localhost relay)
+      inviteLinks: ips.map(ip => `http://${ip}:${port}/play?ws=${encodeURIComponent('ws://' + ip + ':' + port)}`),
+      playLocal: '/play?ws=' + encodeURIComponent('ws://127.0.0.1:' + port),
+      publicUrl,
+      globalInvite,
+      globalWs,
     };
   }
 
@@ -212,6 +261,25 @@ async function main() {
     if (u.pathname === '/api/status') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(statusJson()));
+      return;
+    }
+    if (u.pathname === '/api/tunnel' && req.method === 'POST') {
+      let body = '';
+      req.on('data', c => { body += c; if (body.length > 4096) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const j = JSON.parse(body || '{}');
+          if (j.publicUrl && /^https?:\/\//i.test(j.publicUrl)) {
+            publicUrl = String(j.publicUrl).replace(/\/$/, '');
+            console.log('Worldwide invite:', publicUrl + '/play?ws=' + encodeURIComponent(publicUrl.replace(/^https:/i, 'wss:')));
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, publicUrl }));
+        } catch (e) {
+          res.writeHead(400);
+          res.end('bad json');
+        }
+      });
       return;
     }
     if (u.pathname === '/play' || u.pathname === '/mind-vessel.html') {
@@ -234,9 +302,13 @@ async function main() {
   });
   const wss = new WebSocketServer({ server });
   wss.on('connection', ws => attachWs(ws, 'client'));
-  server.listen(args.port, () => {
+  server.listen(args.port, '0.0.0.0', () => {
+    const ips = lanIps();
     console.log(`Host lobby http://127.0.0.1:${args.port}/`);
     console.log(`Direct WS  ws://127.0.0.1:${args.port}`);
+    if (ips.length) {
+      console.log('Wi‑Fi invite:', `http://${ips[0]}:${args.port}/play?ws=ws://${ips[0]}:${args.port}`);
+    }
     if (args.world) console.log('World file:', args.world);
   });
 

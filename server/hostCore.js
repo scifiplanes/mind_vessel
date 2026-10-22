@@ -20,7 +20,15 @@ function createHost(g, opts = {}) {
     if (!g.MP.hot.has(siteId)) return { siteId, actors: [], objs: [] };
     return g.withSite(siteId, () => {
       const actors = g.actors.filter(a => !a.dead).map(a => ({
-        id: a.id, x: a.x, y: a.y, name: a.comp && a.comp.name, ownerId: a.ownerId || null, isVessel: !!a.isVessel, hp: a.hp, maxHp: a.maxHp,
+        id: a.id,
+        x: a.x,
+        y: a.y,
+        name: a.comp && a.comp.name,
+        species: a.comp && a.comp.species,
+        ownerId: a.ownerId || null,
+        isVessel: !!a.isVessel,
+        hp: a.hp,
+        maxHp: a.maxHp,
       }));
       const objs = (g.objs || []).slice(0, 80).map(o => ({ k: o.k, sub: o.sub, x: o.x, y: o.y }));
       return { siteId, actors, objs, tick: g.RG.tick, gameTime: g.gameTime };
@@ -38,14 +46,45 @@ function createHost(g, opts = {}) {
     };
   }
 
+  function worldForClient() {
+    if (typeof g.saveCampaignBlob !== 'function') return null;
+    const blob = g.saveCampaignBlob();
+    if (!blob || !blob.RG) return null;
+    // Region + clocks only — each client keeps its own vessel from welcome.vessel
+    return {
+      ver: blob.ver || 2,
+      RG: blob.RG,
+      cyc: blob.cyc,
+      newsId: blob.newsId,
+      nextId: blob.nextId,
+      gameTime: blob.gameTime,
+      settings: {
+        pvp: !!g.worldSettings.pvp,
+        maxPlayers: g.worldSettings.maxPlayers,
+        alwaysOn: !!g.worldSettings.alwaysOn,
+      },
+    };
+  }
+
   function welcomePayload(playerId) {
     const rec = g.MP.players.get(playerId);
+    const vesselActor = typeof g.serializeActor === 'function' ? g.serializeActor(rec.vessel) : null;
     return {
       t: 'welcome',
       playerId,
       token: rec.token,
-      vessel: { id: rec.vessel.id, mind: rec.vessel.mind.slice(), name: rec.displayName, lib: rec.save.lib.slice() },
+      vessel: {
+        id: rec.vessel.id,
+        mind: rec.vessel.mind.slice(),
+        name: rec.displayName,
+        lib: rec.save.lib.slice(),
+        actor: vesselActor,
+        vmem: typeof g.serializeVmem === 'function' ? g.serializeVmem(rec.vmem) : null,
+        src: rec.save.src ? Object.assign({}, rec.save.src) : {},
+        best: rec.save.best || 1,
+      },
       site: rec.siteId != null ? siteSnapshot(rec.siteId, playerId) : null,
+      world: worldForClient(),
       settings: { pvp: !!g.worldSettings.pvp, maxPlayers: g.worldSettings.maxPlayers },
       party: g.partyPresence(playerId),
     };
@@ -76,8 +115,11 @@ function createHost(g, opts = {}) {
         g.enterSiteFor(res.playerId, rec.siteId);
       }
       sessions.set(res.playerId, { ws: ctx.ws });
-      send(res.playerId, welcomePayload(res.playerId));
-      send(res.playerId, regionSoft(res.playerId));
+      // Bind transport before welcome — otherwise send(playerId) misses the still-pending socket
+      if (typeof ctx.bind === 'function') ctx.bind(res.playerId);
+      const deliverTo = res.playerId;
+      send(deliverTo, welcomePayload(res.playerId));
+      send(deliverTo, regionSoft(res.playerId));
       return res.playerId;
     }
 
@@ -208,7 +250,20 @@ function createHost(g, opts = {}) {
       const rec = g.MP.players.get(playerId);
       if (!rec || rec.stashed || rec.siteId == null) continue;
       send(playerId, { t: 'site.delta', ...siteSnapshot(rec.siteId, playerId) });
-      send(playerId, { t: 'you.vessel', mind: rec.vessel.mind.slice(), x: rec.vessel.x, y: rec.vessel.y, hp: rec.vessel.hp });
+      const v = rec.vessel;
+      const it = v.intent;
+      send(playerId, {
+        t: 'you.vessel',
+        mind: v.mind.slice(),
+        x: v.x,
+        y: v.y,
+        hp: v.hp,
+        energy: v.energy,
+        idleT: v.idleT || 0,
+        intent: it ? { v: it.v, lab: it.lab || '', th: it.th || null } : null,
+        busy: v.busy ? { type: v.busy.type } : null,
+        focus: v.focus ? { all: v.focus.all || 0 } : null,
+      });
     }
   }
 
@@ -242,7 +297,7 @@ function createHost(g, opts = {}) {
     }
   }
 
-  return { onMessage, onDisconnect, tick, kick, welcomePayload, siteSnapshot, regionSoft, noteMeetings, sessions, getVote: () => vote };
+  return { onMessage, onDisconnect, tick, kick, welcomePayload, worldForClient, siteSnapshot, regionSoft, noteMeetings, sessions, getVote: () => vote };
 }
 
 module.exports = { createHost };

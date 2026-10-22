@@ -5,6 +5,7 @@
   "description": "MIND//VESSEL — solo browser game + self-hosted multiplayer",
   "scripts": {
     "start": "node scripts/start.js",
+    "start:cloud": "MIND_VESSEL_CLOUD=1 MIND_VESSEL_NO_OPEN=1 node scripts/start.js",
     "test": "node tests/run-all.js",
     "extract": "node tests/harness/extract.js",
     "host": "node server/host.js",
@@ -14,9 +15,8 @@
     "node": ">=18"
   },
   "dependencies": {
+    "jsdom": "^24.1.3",
     "ws": "^8.18.0"
   },
-  "devDependencies": {
-    "jsdom": "^24.1.3"
-  }
+  "devDependencies": {}
 }

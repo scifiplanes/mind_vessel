@@ -63,7 +63,13 @@ function patchBoot(html) {
   // Prevent rAF loop and startup dialog; expose internals as g / __MV_G
   const boot = `const resumed=loadCampaign()===true;if(!resumed)newVessel();
 updFk();uiTick();
-showDlg('MIND//VESSEL',START,resumed?'Continue':'Begin',()=>{tryAutoJoinFromUrl();let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}if(!done)coach(0)});
+// If opened via lobby invite (?ws=…), connect immediately — don't wait for Begin
+const _autoJoin=tryAutoJoinFromUrl();
+if(!_autoJoin){
+  showDlg('MIND//VESSEL',START,resumed?'Continue':'Begin',()=>{let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}if(!done)coach(0)});
+}else{
+  try{$('dlg').hidden=true;dlgOpen=false}catch(e){}
+}
 requestAnimationFrame(frame);`;
 
   const replacement = `
@@ -91,6 +97,12 @@ globalThis.__MV_G=(function(){
   if(typeof absorb==='function')bindFn('absorb',absorb);
   if(typeof assemblyWake==='function')bindFn('assemblyWake',assemblyWake);
   if(typeof assemblySleep==='function')bindFn('assemblySleep',assemblySleep);
+  if(typeof footOf==='function')bindFn('footOf',footOf);
+  if(typeof footDist==='function')bindFn('footDist',footDist);
+  if(typeof canSit==='function')bindFn('canSit',canSit);
+  if(typeof wakeMass==='function')bindFn('wakeMass',wakeMass);
+  if(typeof massKindFor==='function')bindFn('massKindFor',massKindFor);
+  if(typeof walk==='function')bindFn('walk',walk);
   if(typeof coalesce==='function')bindFn('coalesce',coalesce);
   if(typeof split==='function')bindFn('split',split);
   if(typeof splitNear==='function')bindFn('splitNear',splitNear);
@@ -153,6 +165,9 @@ globalThis.__MV_G=(function(){
   Object.defineProperty(g,'save',{enumerable:true,get(){return save},set(v){save=v}});
   Object.defineProperty(g,'cyc',{enumerable:true,get(){return cyc}});
   Object.defineProperty(g,'TH',{enumerable:true,get(){return TH}});
+  Object.defineProperty(g,'KIND',{enumerable:true,get(){return KIND}});
+  Object.defineProperty(g,'BUILD',{enumerable:true,get(){return BUILD}});
+  Object.defineProperty(g,'PROP_FOOT',{enumerable:true,get(){return typeof PROP_FOOT!=='undefined'?PROP_FOOT:undefined}});
   Object.defineProperty(g,'MP',{enumerable:true,get(){return typeof MpWorld!=='undefined'?MpWorld:undefined},set(v){MpWorld=v}});
   Object.defineProperty(g,'MpWorld',{enumerable:true,get(){return typeof MpWorld!=='undefined'?MpWorld:undefined},set(v){MpWorld=v}});
   Object.defineProperty(g,'worldSettings',{enumerable:true,get(){return typeof worldSettings!=='undefined'?worldSettings:undefined},set(v){worldSettings=v}});

@@ -1,0 +1,13 @@
+node_modules
+.git
+.DS_Store
+*.log
+.cursor
+tools/bin
+worlds/*.json
+!worlds/.gitkeep
+sim/game.js
+agent-transcripts
+.dashboard
+MIND VESSEL Host.app
+*.command

@@ -187,24 +187,30 @@ Shipped in-repo max content expansion, then a full follow-up (A–F slices), the
 
 ## 8. Multiplayer (self-hosted)
 
-Valheim-style: browser **clients**, Node **host** (listen = dedicated), optional **join-code relay** (host dials outbound).
+Valheim-style: browser **clients**, Node **host** (listen = dedicated), optional **join-code relay** (host dials outbound). **Worldwide invites** use a Cloudflare quick tunnel (`scripts/tunnel.js`) so friends join from the public internet without port-forwarding.
 
 ```
-# Host (Mac): double-click “MIND VESSEL Host.app” in this folder
-# (first time: right-click → Open → Open). Lobby opens with join code; Quit the app to stop.
+# Always-on cloud (recommended for friends): see HOW TO DEPLOY.txt
+fly deploy               # after one-time fly auth / volume setup
 
-npm start                # terminal alternative
+# Host on your Mac: double-click “MIND VESSEL Host.app”
+# Lobby → Copy worldwide invite. Quit the app to stop.
+
+npm start                # terminal alternative (Cloudflare tunnel)
+MIND_VESSEL_NO_TUNNEL=1 npm start   # LAN / local only
 npm test
 ```
 
-Friends: game → ☰ → Play with friends → Join → paste code (or lobby “Open game”).
-Requires Node.js LTS installed once (nodejs.org).
+Friends: open the **worldwide invite** (Fly URL or tunnel link). Short join codes are same-machine only.
+Local host: Node.js LTS once; may download `cloudflared` into `tools/bin/`.
+Cloud: [`Dockerfile`](Dockerfile) + [`fly.toml`](fly.toml) — persistent world on `/data`.
 
 | Piece | Path |
 |---|---|
 | Sim MP APIs | `MpWorld` in `mind-vessel.html` (`ensureMP`, `enterSiteFor`, `updateAll`, …) |
 | Protocol | [`net/protocol.js`](net/protocol.js) |
 | Host | [`server/host.js`](server/host.js) + [`server/hostCore.js`](server/hostCore.js) |
+| Tunnel | [`scripts/tunnel.js`](scripts/tunnel.js) + [`scripts/start.js`](scripts/start.js) |
 | World files | [`server/worldFile.js`](server/worldFile.js) (`ver: 2` + `players[]`) |
 | Relay | [`relay/server.js`](relay/server.js) |
 | Client UI | ☰ Join / vote / signal; Mind edits → `mind.set` when connected |

@@ -95,7 +95,7 @@ for i in $(seq 1 80); do
   if curl -sf "$LOBBY" >/dev/null 2>&1; then
     open "$LOBBY"
     opened=1
-    notify "MIND VESSEL Host" "World is up — share the join code from the lobby"
+    notify "MIND VESSEL Host" "World is up — copy the worldwide invite from the lobby"
     break
   fi
   if ! kill -0 "$START_PID" 2>/dev/null; then
