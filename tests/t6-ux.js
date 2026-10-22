@@ -4,6 +4,7 @@ const { loadGame } = require('./harness/dom');
 
 async function main() {
   const g = await loadGame();
+  assert.equal(typeof g.window.showFriendsDlg, 'function', 'showFriendsDlg');
   assert.equal(typeof g.window.showJoinDlg, 'function', 'showJoinDlg');
   assert.equal(typeof g.window.netConnectRelay, 'function', 'netConnectRelay');
   assert.equal(typeof g.window.netConnectDirect, 'function', 'netConnectDirect');
@@ -12,13 +13,16 @@ async function main() {
   assert.equal(typeof g.window.netSignal, 'function', 'netSignal');
   assert.equal(g.window.netActive(), false, 'starts offline');
 
-  // Menu exposes Join when offline
   g.menuOpen = true;
   g.renderMenu();
   const html = g.document.getElementById('menu').innerHTML;
-  assert.ok(/Join multiplayer/i.test(html), 'menu has Join');
+  assert.ok(/Play with friends/i.test(html), 'menu has Play with friends');
 
-  // Solo still works
+  g.window.showFriendsDlg('join');
+  const body = g.document.getElementById('dlg-b').innerHTML;
+  assert.ok(/Join code/i.test(body), 'friends dialog has join code field');
+  assert.ok(/Host a world/i.test(body), 'friends dialog has host tab');
+
   assert.ok(g.player && g.RG, 'solo campaign boot intact');
   const blob = g.saveCampaignBlob();
   assert.ok(blob && blob.RG, 'solo save still works');

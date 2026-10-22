@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "description": "MIND//VESSEL — solo browser game + self-hosted multiplayer",
   "scripts": {
+    "start": "node scripts/start.js",
     "test": "node tests/run-all.js",
     "extract": "node tests/harness/extract.js",
     "host": "node server/host.js",

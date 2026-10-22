@@ -1,0 +1,26 @@
+MIND//VESSEL — host a world for friends
+========================================
+
+1. In Finder, open this folder (the one with mind-vessel.html).
+
+2. Double-click:  MIND VESSEL Host
+
+   First time on a Mac:
+   - Right-click → Open → Open
+   (macOS asks once because the app isn’t from the App Store.)
+
+3. A lobby page opens in your browser with a JOIN CODE.
+   Keep “MIND VESSEL Host” running in the Dock.
+
+4. Friends: open the game → ☰ → Play with friends → Join → paste the code.
+
+5. To stop: click the app in the Dock → Quit
+   (or right-click Dock icon → Quit).
+
+
+Need Node.js once (free):
+  https://nodejs.org  → download LTS → install → try the app again.
+
+
+Fallback: double-click Start World.command (opens Terminal).
+Advanced: in this folder, run  npm start

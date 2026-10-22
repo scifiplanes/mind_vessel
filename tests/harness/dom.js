@@ -63,7 +63,7 @@ function patchBoot(html) {
   // Prevent rAF loop and startup dialog; expose internals as g / __MV_G
   const boot = `const resumed=loadCampaign()===true;if(!resumed)newVessel();
 updFk();uiTick();
-showDlg('MIND//VESSEL',START,resumed?'Continue':'Begin',()=>{let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}if(!done)coach(0)});
+showDlg('MIND//VESSEL',START,resumed?'Continue':'Begin',()=>{tryAutoJoinFromUrl();let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}if(!done)coach(0)});
 requestAnimationFrame(frame);`;
 
   const replacement = `
@@ -132,7 +132,12 @@ globalThis.__MV_G=(function(){
   if(typeof canLootRemains==='function')bindFn('canLootRemains',canLootRemains);
   if(typeof pvpAllows==='function')bindFn('pvpAllows',pvpAllows);
   if(typeof showJoinDlg==='function')bindFn('showJoinDlg',showJoinDlg);
+  if(typeof showFriendsDlg==='function')bindFn('showFriendsDlg',showFriendsDlg);
   if(typeof netActive==='function')bindFn('netActive',netActive);
+  if(typeof netConnectRelay==='function')bindFn('netConnectRelay',netConnectRelay);
+  if(typeof netConnectDirect==='function')bindFn('netConnectDirect',netConnectDirect);
+  if(typeof netProposeVote==='function')bindFn('netProposeVote',netProposeVote);
+  if(typeof netSignal==='function')bindFn('netSignal',netSignal);
   if(typeof renderMenu==='function')bindFn('renderMenu',renderMenu);
   if(typeof toggleMenu==='function')bindFn('toggleMenu',toggleMenu);
   Object.defineProperty(g,'menuOpen',{enumerable:true,get(){return menuOpen},set(v){menuOpen=v}});
@@ -203,6 +208,9 @@ async function loadGame(opts = {}) {
       });
       window.requestAnimationFrame = cb => setTimeout(() => cb(Date.now()), 0);
       window.cancelAnimationFrame = id => clearTimeout(id);
+      if (typeof window.fetch !== 'function') {
+        window.fetch = () => Promise.reject(new Error('fetch stub'));
+      }
       window.HTMLElement.prototype.scrollIntoView = () => {};
       Object.defineProperty(window.HTMLElement.prototype, 'clientWidth', { get() { return w; } });
       Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { get() { return h; } });

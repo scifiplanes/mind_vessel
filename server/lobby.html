@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MIND//VESSEL — World lobby</title>
+<style>
+  :root{--bg:#0c0c0c;--fg:#d8d2c4;--dim:#7a7568;--line:#4a463c;--amber:#e0a040;--panel:#141414;--ok:#8cba7a}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font:18px/1.35 "Perfect DOS VGA 437 Win",ui-monospace,Menlo,Consolas,monospace;
+    background:radial-gradient(1200px 600px at 50% -10%,#1a1814 0%,var(--bg) 55%);color:var(--fg);
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  main{width:min(440px,100%);border:4px double var(--line);background:var(--panel);padding:28px 24px 22px;position:relative}
+  h1{margin:0 0 .2em;font:inherit;font-size:1.1em;letter-spacing:.06em;text-align:center}
+  .sub{color:var(--dim);text-align:center;margin:0 0 1.4em;font-size:.9em}
+  .code{font-size:2.4em;letter-spacing:.28em;text-align:center;padding:.35em 0 .5em;color:var(--amber);user-select:all}
+  .row{display:flex;gap:8px;margin:.6em 0}
+  button,.btn{flex:1;font:inherit;color:var(--fg);background:transparent;border:2px solid var(--line);padding:.55em .7em;cursor:pointer;text-align:center;text-decoration:none}
+  button:hover,.btn:hover{border-color:var(--amber);color:var(--amber)}
+  button.primary{border-color:var(--amber);color:var(--amber)}
+  .status{margin-top:1.1em;color:var(--dim);font-size:.85em;text-align:center}
+  .status b{color:var(--ok);font-weight:normal}
+  .hint{margin-top:1.2em;padding-top:.8em;border-top:1px solid var(--line);color:var(--dim);font-size:.85em}
+  .hint code{color:var(--fg)}
+  label{display:block;color:var(--dim);font-size:.85em;margin:.8em 0 .25em}
+  input{width:100%;font:inherit;background:#0a0a0a;color:var(--fg);border:1px solid var(--line);padding:.45em .55em}
+  .wait{color:var(--dim);text-align:center;padding:1em 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>MIND//VESSEL</h1>
+  <p class="sub">Your world is running. Share the code.</p>
+  <div id="body"><p class="wait">Connecting…</p></div>
+</main>
+<script>
+async function load(){
+  const r=await fetch('/api/status');const s=await r.json();
+  const el=document.getElementById('body');
+  const code=s.code||'······';
+  const game=s.gameUrl||'/play';
+  const pass=s.hasPassword?'<label>Password (optional for friends)<br><input id="pw" type="password" placeholder="if the host set one" autocomplete="off"></label>':'';
+  el.innerHTML=`
+    <div class="code" id="code">${code}</div>
+    <div class="row">
+      <button type="button" id="copy" class="primary">Copy code</button>
+      <a class="btn primary" id="play" href="#">Open game</a>
+    </div>
+    ${pass}
+    <p class="status">Players online: <b id="n">${s.players|0}</b> · World: <b>${s.worldName||'save'}</b></p>
+    <div class="hint">
+      Friends open the game → <b>☰ → Play with friends → Join</b> → paste this code.
+      Or send them this lobby page.<br><br>
+      To stop: Quit <b>MIND VESSEL Host</b> from the Dock.
+      Next time: double-click that app again in the project folder.
+    </div>`;
+  const play=document.getElementById('play');
+  function href(){
+    const u=new URL(game,location.href);
+    if(s.code)u.searchParams.set('join',s.code);
+    const pw=document.getElementById('pw');
+    if(pw&&pw.value)u.searchParams.set('pw',pw.value);
+    if(s.relay)u.searchParams.set('relay',s.relay);
+    return u.toString();
+  }
+  play.href=href();
+  document.getElementById('pw')?.addEventListener('input',()=>{play.href=href()});
+  document.getElementById('copy').onclick=async()=>{
+    try{await navigator.clipboard.writeText(s.code||'');document.getElementById('copy').textContent='Copied';}
+    catch(e){document.getElementById('copy').textContent='Select code above'}
+  };
+  setInterval(async()=>{
+    try{const r2=await fetch('/api/status');const s2=await r2.json();
+      document.getElementById('n').textContent=String(s2.players|0);
+      if(s2.code&&s2.code!==code)location.reload();
+    }catch(e){}
+  },2000);
+}
+load().catch(()=>{document.getElementById('body').innerHTML='<p class="wait">Host not ready. Is <code>npm start</code> running?</p>'});
+</script>
+</body>
+</html>

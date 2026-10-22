@@ -22,11 +22,11 @@ An indirect-control roguelike prototype. The player never moves the character (t
 
 ## 2. Running and controls
 
-Open `mind-vessel.html`. First run shows a short intro and two coach marks (stored in `localStorage`).
+Open `mind-vessel.html`. First run shows a short intro and three coach marks (Mind → Memory ＋ → tap world; stored in `localStorage`).
 
 Keys: `Space` pause · `S` speed ×1/×2/×4 · `M` region map · `L` Memory · `B` vessel sheet · `G` log (Detailed) · `R` world overlay · `V` dice rolls · `D` dither · `F9` or `` ` `` debug panel · `U` Simple/Detailed · `N` ×2 abandon vessel · `T` theme · `H` help · `Esc` close.
 
-`localStorage` keys: `mindvessel.v2` (deepest tier reached), `mindvessel.campaign.v1` (full campaign + living vessel), `mindvessel.coached5` (coach complete; older `coached2`–`coached4` ignored), `mindvessel.uimode` (`simple`|`detailed`), `mindvessel.debug` (dither and log settings), `mindvessel.autorestart`.
+`localStorage` keys: `mindvessel.v2` (deepest tier reached), `mindvessel.campaign.v1` (full campaign + living vessel), `mindvessel.coached5` (coach complete; older `coached2`–`coached4` ignored), `mindvessel.uimode` (`simple`|`detailed`), `mindvessel.cardopen` (first world card expanded once in Simple), `mindvessel.debug` (dither and log settings), `mindvessel.autorestart`.
 
 **Campaign persistence:** `saveCampaign` / `loadCampaign` serialise `RG` (sites, civs with Map/Set revived, news), `cyc`, visited `s.dun` TypedArrays, and the living vessel (`vmem`, Mind/Library, followers). Saves debounce ~900 ms after site enter/leave/region ticks, and flush on `beforeunload` / tab hide. Wipe (`W` twice) clears the campaign key. Reloading resumes the same region and vessel.
 
@@ -102,8 +102,8 @@ The script is one `<script>` block, organised in banner-commented sections (sear
 - `phone` (≤860 px): world on top, sheet below with peek/half/full heights.
 
 **Modes:** `SIMPLE` (default) and Detailed; `setSimple(on)`; CSS class `#app.simple`.
-- Simple: glyph rows (category band, state, glyph, name; blocked rows show a condition glyph; travel rows show "→ Site"), attention bar, verb strip on select, tap again for the Thought card; flat Memory (★ "acts here" first, pulsing); compact icon cards with ▾ for full detail; ＋ opens Memory; tapping the vessel gives bars, equipment, pack and ▤ for the full sheet; glyph legend in help. Coach tip 2 points at ＋ when Memory is closed.
-- Detailed: numbered rows with reason text, tabs (Mind, Memory, Vessel, Log), status line, log channels.
+- Simple: glyph rows (band, state, glyph, name; early-game block icons only — else shared warn; travel "→ Site" only when that Thought is selected or running); attention bar; verb strip on select; ▾ cue + tap again for Thought card; dockbar ＋ always opens Memory; flat Memory (pulse = acts here); compact cards (first world card auto-expands once); peek strip = glyph + attention only; slim ☰ (More… for the rest); map = route/civ only; Help = short glyph legend. Coach: Mind → ＋ Memory → tap world.
+- Detailed: numbered rows with reason text, tabs (Mind, Memory, Vessel, Log), status line, log channels, full Help.
 
 **Glyphs:** 7×7 pixel masks in `GLYPH`, rendered as URL-encoded SVG masks (`.ico`, coloured by `currentColor`). Redrawing one is editing seven strings.
 
@@ -190,13 +190,15 @@ Shipped in-repo max content expansion, then a full follow-up (A–F slices), the
 Valheim-style: browser **clients**, Node **host** (listen = dedicated), optional **join-code relay** (host dials outbound).
 
 ```
-npm install
-npm test                 # harness + suites
-npm run relay            # ws://127.0.0.1:7474
-npm run host -- --world worlds/demo.json --relay ws://127.0.0.1:7474
-# In the game: ☰ → Join multiplayer… → paste join code
-# Direct (no relay): npm run host -- --port 7777  then Join ws://127.0.0.1:7777
+# Host (Mac): double-click “MIND VESSEL Host.app” in this folder
+# (first time: right-click → Open → Open). Lobby opens with join code; Quit the app to stop.
+
+npm start                # terminal alternative
+npm test
 ```
+
+Friends: game → ☰ → Play with friends → Join → paste code (or lobby “Open game”).
+Requires Node.js LTS installed once (nodejs.org).
 
 | Piece | Path |
 |---|---|
@@ -219,7 +221,7 @@ npm run host -- --world worlds/demo.json --relay ws://127.0.0.1:7474
 - **Hunter floor** in `regionStep` refills empty niches more aggressively on Bone/Lease sites; coverage still varies by region seed.
 - **Told tiles** reopen for explore after ~55% site dwell (sooner with `trustmap`/`walkblind`); still blocked briefly under fresh `newsHot`. Worth playtesting.
 - **Earlier balance notes (Pass 4 retuned):** Shepherd/Merchant should idle less; Stalker/Coward hide only when alone; vessel TUNNEL caps at 36 digs/site (NPC settlements still 24). Explore time was 3–5 minutes — re-check after told-fog change.
-- **Simple mode on phones:** the collapsed sheet still shows a one-line text summary. Simple mode has no log view by design.
+- **Simple mode on phones:** peek strip is glyph + attention only (no prose status line). Simple mode has no log view by design.
 - **Glyphs** need a visual pass in a real browser.
 
 ## 10. Working conventions used so far

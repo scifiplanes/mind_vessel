@@ -68,8 +68,17 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
 #app.simple .th{gap:.4em}
 #app.simple .th .why{display:flex;gap:.3em;align-items:center}
 #app.simple .th .cond{color:var(--red)}
+#app.simple .th.sel .nm::after{content:' ▾';opacity:.55;font-size:.85em}
+#app.simple .thb{display:none}
+#app.simple .th.sel .thb,#app.simple .th.kb .thb{display:inline}
+#app.simple .instinct{gap:.3em;padding:.1em .3em;font-size:.9em}
+#app.simple .instinct .nm{display:none}
+#dock-mem{display:none;border:1px solid var(--line);padding:0 .4em;min-width:1.8em}
+#app.simple #dock-mem{display:inline}
+#app.simple #dock-mem.need{animation:actpulse 1.2s ease-in-out infinite;color:var(--amber);border-color:var(--amber)}
 #dock-back{display:none}
 #app.simple #dock-back.on{display:inline}
+@media (max-width:860px){#app.simple .thb{display:inline}}
 .th.drop[data-prev]::after{content:attr(data-prev);color:var(--amber);margin-left:.4em}
 #capline{display:inline-block}
 #capline.full{animation:capfull 1s;color:var(--red)}
@@ -93,7 +102,7 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
 #card .lk.gear:hover,#card .lk.pk:hover{background:#d0d0d0;color:#000}
 #card .mb{display:inline-block;width:46px;height:5px;background:rgba(128,128,128,.35);margin:0 6px 0 2px;vertical-align:1px}
 #card .mb b{display:block;height:100%}
-@media (prefers-reduced-motion: reduce){.card.acts{animation:none;box-shadow:inset 0 0 0 1px #e0a040}}
+@media (prefers-reduced-motion: reduce){.card.acts,#app.simple #dock-mem.need{animation:none;box-shadow:inset 0 0 0 1px #e0a040}}
 #ducts{position:absolute;inset:0;pointer-events:none;z-index:2;opacity:0;transition:opacity .3s}
 #ducts.on{opacity:1}
 #ducts.on .duct{pointer-events:auto}
@@ -245,6 +254,9 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
 #menu h3{margin:.4em 0 .1em;font:inherit;color:var(--dim)}
 #menu .mi{display:flex;width:100%;text-align:left;padding:.15em .3em;gap:.5em}
 #menu .mi .r{margin-left:auto;color:var(--dim)}
+#menu .mi.hi{color:var(--amber)}
+#net-badge{display:none;color:var(--amber);cursor:pointer;padding:0 .35em}
+#net-badge.on{display:inline}
 /* dialogs and coach */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px}
 .overlay[hidden]{display:none}
@@ -255,6 +267,18 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
 .dlg .body{padding:.4em .7em;line-height:1.15;overflow:auto;max-height:70vh}
 .dlg .body p{margin:.45em 0}
 .dlg .btns{text-align:center;padding:.4em}
+.dlg .tabs{display:flex;gap:6px;margin:.3em 0 .7em}
+.dlg .tabs button{flex:1;font:inherit;background:transparent;color:var(--dim);border:1px solid var(--line);padding:.35em}
+.dlg .tabs button.on{color:var(--amber);border-color:var(--amber)}
+.dlg label{display:block;color:var(--dim);margin:.55em 0 .2em;font-size:.95em}
+.dlg input[type=text],.dlg input[type=password]{width:100%;font:inherit;background:var(--bg,#0a0a0a);color:var(--fg);border:1px solid var(--line);padding:.45em .55em}
+.dlg .bigcode{font-size:1.6em;letter-spacing:.2em;color:var(--amber);text-align:center;padding:.3em 0}
+.dlg .actions{display:flex;flex-wrap:wrap;gap:8px;margin:.7em 0 .3em}
+.dlg .actions button{font:inherit;background:transparent;color:var(--fg);border:2px solid var(--line);padding:.4em .7em;cursor:pointer}
+.dlg .actions button.primary{border-color:var(--amber);color:var(--amber)}
+.dlg details{margin:.7em 0;color:var(--dim)}
+.dlg details summary{cursor:pointer;color:var(--dim)}
+.dlg .okline{color:var(--amber);margin:.4em 0}
 #coach{position:fixed;z-index:30;background:var(--panel);color:var(--fg);border:4px double var(--line);padding:6px 9px;line-height:1.15}
 #coach[hidden]{display:none}
 #coach .cb{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:6px}
@@ -295,6 +319,7 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
 <div id="app"><span id="vt" hidden></span>
   <div class="menubar"><span id="hdr-site" role="button" tabindex="0" title="Open the region map (M)">MIND//VESSEL</span>
     <span class="hb" id="hb-hp" title="Health"><span class="w">HP</span> <i><b></b></i></span><span class="hb" id="hb-en" title="Energy"><span class="w">EN</span> <i><b></b></i></span>
+    <span id="net-badge" title="Multiplayer" role="button" tabindex="0">● friends</span>
     <button id="b-pause" aria-label="Pause or resume">▌▌</button><button id="b-speed" aria-label="Change speed">x1</button><button id="b-menu" aria-label="Menu" aria-expanded="false">☰</button></div>
   <div id="stage">
     <div class="viewwrap" id="vw">
@@ -307,7 +332,7 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
     </div>
     <section id="dock" aria-label="Mind">
       <button id="handle" aria-label="Resize the sheet"></button>
-      <div class="dockbar"><div class="tabs" id="docktabs"><button data-t="mind" class="on">Mind</button><button data-t="lib">Memory</button><button data-t="ves">Vessel</button><button data-t="log">Log</button></div><span class="sp"></span><span id="capline" class="dim"></span><button id="dock-back" aria-label="Back to the Mind">‹ Mind</button><button id="dock-min" aria-label="Collapse or expand the dock">▾</button></div>
+      <div class="dockbar"><div class="tabs" id="docktabs"><button data-t="mind" class="on">Mind</button><button data-t="lib">Memory</button><button data-t="ves">Vessel</button><button data-t="log">Log</button></div><span class="sp"></span><span id="capline" class="dim"></span><button id="dock-mem" aria-label="Open Memory" title="Memory (L)">＋</button><button id="dock-back" aria-label="Back to the Mind">‹ Mind</button><button id="dock-min" aria-label="Collapse or expand the dock">▾</button></div>
       <div id="strip" role="button" tabindex="0"></div>
       <div class="dpane" id="pane-mind"><div id="mindrows" tabindex="0" aria-label="Mind. Arrow keys select, Shift+arrows reorder, Delete removes, Enter shows verbs."></div><div id="mdetail" aria-live="polite"></div></div>
       <div class="dpane" id="pane-lib" hidden></div>
@@ -5018,6 +5043,20 @@ function partyPresence(viewerId){
   }
   return out;
 }
+function mpKick(playerId){
+  ensureMP();
+  const rec=MpWorld.players.get(playerId);if(!rec)return false;
+  despawnPlayer(playerId);
+  return true;
+}
+function mpBan(playerId){
+  ensureMP();
+  const rec=MpWorld.players.get(playerId);if(!rec)return false;
+  MpWorld.banned.add(rec.token);
+  if(rec.claimName)MpWorld.banned.add(rec.claimName);
+  worldSettings.banned=[...MpWorld.banned];
+  return mpKick(playerId);
+}
 
 // ================================================================ update
 function updActor(a,dt){
@@ -5730,9 +5769,11 @@ const verbIco=v=>VERB_G[v]||'dot';
 const thoughtIco=tid=>{const T=TH[tid];return T&&T.v.length?verbIco(T.v[0][0]):'dot'};
 const band=tid=>`<span class="band" style="background:${CAT_COL[TH[tid].cat]||'#888'}"></span>`;
 function setSimple(on){SIMPLE=on;try{localStorage.setItem('mindvessel.uimode',on?'simple':'detailed')}catch(e){}$('app').classList.toggle('simple',on);
-  if(on&&dockTab==='log')showDock('mind');mindSig='';libSig='';cardSig='';sheetSig='';detSig='';renderMenu();uiTick()}
-// a blocked row says why with one icon
-function condIcon(tid,row){if(!row)return'';const k=row.verbs.findIndex(v=>v.st==='x');if(k<0)return'';const p=(TH[tid].v[k]||[])[1]||{},key=p.when&&Object.keys(p.when)[0];return key?ico(COND_G[key]||'warn','cond',row.verbs[k].why||''):''}
+  if(on&&dockTab==='log')showDock('mind');mindSig='';libSig='';cardSig='';sheetSig='';detSig='';menuMore=false;renderMenu();uiTick()}
+// early-game conditions get distinct icons; everything else shares a blocked mark (why is on the Thought card)
+const COND_SIMPLE={hpBelow:1,energyBelow:1,threat:1,dark:1,foodLow:1,outnumbered:1};
+function condIcon(tid,row){if(!row)return'';const k=row.verbs.findIndex(v=>v.st==='x');if(k<0)return'';const p=(TH[tid].v[k]||[])[1]||{},key=p.when&&Object.keys(p.when)[0],why=row.verbs[k].why||'blocked';
+  if(!key)return'';if(SIMPLE&&!COND_SIMPLE[key])return ico('warn','cond',why);return ico(COND_G[key]||'warn','cond',why)}
 function renderMindSimple(){
   const a=player,used=mindCost(a),cap=a.mindCap,tr=a.trace||[],add=dragAdd||placing?TH[dragAdd||placing].c:0;
   paintCapline(`${'■'.repeat(Math.min(used,cap))}<span class="${add&&used+add>cap?'bad':'acc'}">${'■'.repeat(Math.max(0,Math.min(add,cap-used)))}</span>${'□'.repeat(Math.max(0,cap-used-add))}`);
@@ -5741,13 +5782,12 @@ function renderMindSimple(){
   a.mind.forEach((tid,i)=>{const T=TH[tid],row=tr.find(r=>r.tid===tid),st=rowState(row),open=openRows.has(tid)||selTh===tid;
     if(placing)h+=slot(i);
     let tail='';if(st==='x')tail=condIcon(tid,row);else if(st==='p')tail=ico('moon','cond','out of attention');
-    if(st!=='run'&&T.v.some(v=>v[0]==='TRAVEL')){const r=routes.find(r=>r.tid===tid);if(r&&r.to!=null){const o=RG.sites[r.to];tail+=` <span class="acc">→ ${esc(o.name)} ${dirArrow(o.x-cs.x,o.y-cs.y)}</span>`}}
+    if((st==='run'||selTh===tid)&&T.v.some(v=>v[0]==='TRAVEL')){const r=routes.find(r=>r.tid===tid);if(r&&r.to!=null){const o=RG.sites[r.to];tail+=` <span class="acc">→ ${esc(o.name)} ${dirArrow(o.x-cs.x,o.y-cs.y)}</span>`}}
     h+=`<div class="row th st-${st==='-'?'none':st}${selTh===tid?' sel':''}${i===mindSel?' kb':''}" draggable="true" data-t="${tid}" data-i="${i}" title="${esc(T.n+': '+T.d)}">${band(tid)}<span class="ic">${ST_ICON[st]}</span>${ico(thoughtIco(tid))}<span class="nm">${T.n}</span><span class="why">${tail}</span><span class="thb"><button data-up="${i}" aria-label="Raise ${T.n}">▲</button><button data-dn="${i}" aria-label="Lower ${T.n}">▼</button></span><button data-rm="${i}" aria-label="Remove ${T.n}">x</button></div>`;
     if(st==='run')h+=`<div class="attn" title="attention"><b style="width:${Math.round(left/pat*100)}%"></b></div>`;
-    if(open)h+=`<div class="vrow">${T.v.map((v,k)=>{const r=row&&row.verbs[k],s2=r?r.st:'below',p=v[1]||{};return`<span class="v ${s2==='-'?'none':s2}" title="${esc(v[0]+(p.what?' '+p.what:'')+(p.how?' '+p.how.toLowerCase():'')+(p.fam?' '+p.fam.toLowerCase():'')+(p.to?' → '+p.to:'')+condStr(p.when)+(r?': '+(r.why||''):''))}">${ico(verbIco(v[0]))}${p.when?condIconFor(p.when):''}</span>`}).join('')}</div>`});
+    if(open)h+=`<div class="vrow">${T.v.map((v,k)=>{const r=row&&row.verbs[k],s2=r?r.st:'below',p=v[1]||{};return`<span class="v ${s2==='-'?'none':s2}" title="${esc(v[0]+(p.what?' '+p.what:'')+(p.how?' '+p.how.toLowerCase():'')+(p.fam?' '+p.fam.toLowerCase():'')+(p.to?' → '+p.to:'')+condStr(p.when)+(r?': '+(r.why||''):''))}">${ico(verbIco(v[0]))}${p.when&&(!SIMPLE||COND_SIMPLE[Object.keys(p.when)[0]])?condIconFor(p.when):''}</span>`}).join('')}</div>`});
   if(placing)h+=slot(a.mind.length)+`<button class="slot" data-cancel="1">✕</button>`;
-  else if(layout!=='bottom')h+=`<button class="addrow" id="mind-add" data-lib="1" title="Open Memory (L)" aria-label="Open Memory">＋</button>`;
-  h+=`<div class="row dim${curTh===null?' acc':''}" title="Instinct: strike back when struck"><span class="band"></span><span class="ic">${curTh===null?'▶':' '}</span>${ico('sword')}<span class="nm">Instinct</span></div>`;
+  h+=`<div class="row dim instinct${curTh===null?' acc':''}" title="Instinct: strike back when struck"><span class="ic">${curTh===null?'▶':' '}</span>${ico('sword')}<span class="nm">Instinct</span></div>`;
   $('mindrows').classList.toggle('placing',!!placing);
   if(h!==mindSig){$('mindrows').innerHTML=h;mindSig=h}
 }
@@ -5793,9 +5833,11 @@ function renderMind(){
   if(dragging||!player)return;
   const a=player,used=mindCost(a),cap=a.mindCap,tr=a.trace||[],add=dragAdd||placing?TH[dragAdd||placing].c:0;
   const pat=patience(a),left=Math.max(0,pat-(a.focus.all||0));
-  paintCapline(`${'■'.repeat(Math.min(used,cap))}<span class="${add&&used+add>cap?'bad':'acc'}">${'■'.repeat(Math.max(0,Math.min(add,cap-used)))}</span>${'□'.repeat(Math.max(0,cap-used-add))} ${used+add}/${cap} . <span title="Open-ended work uses it up; then lower Thoughts such as travel take over. If nothing can act, attention recovers.">attention ${left>0?fmtT(left):'spent'}</span>`);
+  if(SIMPLE)paintCapline(`${'■'.repeat(Math.min(used,cap))}<span class="${add&&used+add>cap?'bad':'acc'}">${'■'.repeat(Math.max(0,Math.min(add,cap-used)))}</span>${'□'.repeat(Math.max(0,cap-used-add))}`);
+  else paintCapline(`${'■'.repeat(Math.min(used,cap))}<span class="${add&&used+add>cap?'bad':'acc'}">${'■'.repeat(Math.max(0,Math.min(add,cap-used)))}</span>${'□'.repeat(Math.max(0,cap-used-add))} ${used+add}/${cap} . <span title="Open-ended work uses it up; then lower Thoughts such as travel take over. If nothing can act, attention recovers.">attention ${left>0?fmtT(left):'spent'}</span>`);
   const nxt=tr.find(r=>rowState(r)==='below'),it=a.intent;
-  $('strip').innerHTML=`<span class="acc">▶ ${it?(it.th?esc(TH[it.th].n):'Instinct')+' . '+esc(it.v.toLowerCase()+' '+(it.lab||'')):'nothing applies'}</span>${nxt?` <span class="dim">next: ${esc(TH[nxt.tid].n)}</span>`:''} <span class="dim">. ${left>0?fmtT(left):'restless'}</span> ▴`;
+  if(SIMPLE)$('strip').innerHTML=it?`${ico(it.th?thoughtIco(it.th):'sword','acc')}<span class="acc">${it.th?esc(TH[it.th].n):''}</span> <span class="attn" style="display:inline-block;width:36px;margin:0 4px;vertical-align:middle"><b style="width:${Math.round(left/pat*100)}%"></b></span>`:`${ico('dot','dim')} <span class="dim">…</span>`;
+  else $('strip').innerHTML=`<span class="acc">▶ ${it?(it.th?esc(TH[it.th].n):'Instinct')+' . '+esc(it.v.toLowerCase()+' '+(it.lab||'')):'nothing applies'}</span>${nxt?` <span class="dim">next: ${esc(TH[nxt.tid].n)}</span>`:''} <span class="dim">. ${left>0?fmtT(left):'restless'}</span> ▴`;
   if(sheet==='peek'||dockTab!=='mind')return;
   if(SIMPLE){renderMindSimple();return}
   const inline=layout!=='bottom';let h='';const routes=routeCache=routePreview(),cs=RG.sites[RG.cur];
@@ -5817,12 +5859,13 @@ function mindFull(tid){
   const T=TH[tid];if(!T||!player)return;
   const free=Math.max(0,player.mindCap-mindCost(player));
   $('libinfo').textContent=`${T.n} needs ${T.c} capacity; ${free} free. Remove a Thought first.`;
-  capFullHtml=`<span class="bad">full</span> · needs ${T.c} · free ${free}`;
+  capFullHtml=SIMPLE?`<span class="bad">■■■</span>`:`<span class="bad">full</span> · needs ${T.c} · free ${free}`;
   capFullUntil=realT()+1.4;
   const c=$('capline');c.innerHTML=capFullHtml;
   c.classList.remove('full');void c.offsetWidth;c.classList.add('full');
   bark(player,'no room for '+T.n,'bad');
   flashPanel(NARROW()?'dock':'drawer');
+  const mem=$('dock-mem');if(mem){mem.classList.add('need');setTimeout(()=>mem.classList.remove('need'),1400)}
   for(const el of $('lib').querySelectorAll('.card.nofit')){el.classList.remove('deny');void el.offsetWidth;el.classList.add('deny')}
   setTimeout(()=>{for(const el of $('lib').querySelectorAll('.card.deny'))el.classList.remove('deny')},750);
 }
@@ -5899,7 +5942,7 @@ function thoughtInfo(tid){
   return s;
 }
 function selectThought(tid){selTh=selTh===tid?null:tid;detSig='';if(selTh&&save.newT)save.newT.delete(selTh);$('libinfo').textContent=selTh?thoughtInfo(selTh):'Drag a card onto the Mind, or press +. ★ would act here right now.';mindSig='';libSig='';renderMind();renderLib()}
-function mindChanged(){if(player.mind.includes('guard')&&!player.anchor)player.anchor={x:player.x,y:player.y};recalc(player);fitMind(player);player.thinkT=0;player.intent=think(player);save.mind=player.mind.slice();mindSig='';libSig='';starT=0;renderMind();renderLib();sheetSig='';cardSig=''}
+function mindChanged(){if(player.mind.includes('guard')&&!player.anchor)player.anchor={x:player.x,y:player.y};recalc(player);fitMind(player);player.thinkT=0;player.intent=think(player);save.mind=player.mind.slice();mindSig='';libSig='';starT=0;renderMind();renderLib();sheetSig='';cardSig='';if(typeof netPushMind==='function')netPushMind()}
 function learnThought(t,src){if(save.lib.includes(t))return;bark(player,'"'+TH[t].n+'"','idea');save.lib.push(t);save.src[t]=src;(save.newT||(save.newT=new Set())).add(t);libSig='';starT=0;renderLib();flashPanel('p-lib');autoPause('thought',`learned "${TH[t].n}"`)}
 function renderMindAndLib(){renderMind();renderLib()}
 // ---------------------------------------------------------------- the contextual card
@@ -5963,7 +6006,15 @@ function suggestFor(c){
   return cand[0]||null;
 }
 let insp=null,cardSig='';
-function openCard(c){insp=c;cardSig='';$('card').hidden=!c;renderCard();if(c&&c.pinned)$('card').focus&&setTimeout&&0}
+function openCard(c){
+  insp=c;cardSig='';
+  // first world card in Simple: open full detail once so ▾ is discoverable
+  if(c&&SIMPLE&&!c.open&&['tile','actor','obj'].includes(c.kind)){
+    let seen=false;try{seen=localStorage.getItem('mindvessel.cardopen')==='1'}catch(e){}
+    if(!seen){c.open=true;try{localStorage.setItem('mindvessel.cardopen','1')}catch(e){}}
+  }
+  $('card').hidden=!c;renderCard();if(c&&c.pinned)$('card').focus&&setTimeout&&0
+}
 function closeCard(){insp=null;cardSig='';$('card').hidden=true}
 function cardLines(c){
   const L=[];let title='',more=[];
@@ -6154,7 +6205,7 @@ function updDucts(){
 $('ducts').addEventListener('click',e=>{const b=e.target.closest('.duct');if(b)openCard({kind:'tile',i:+b.dataset.i,pinned:true})});
 $('hdr-site').addEventListener('click',()=>openMap(RG.cur));
 $('hdr-site').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMap(RG.cur)}});
-function openMap(siteId){mapOpen=true;$('mapov').hidden=false;regSel=siteId!=null?RG.sites[siteId]:null;drawRegion()}
+function openMap(siteId){mapOpen=true;$('mapov').hidden=false;regSel=siteId!=null?RG.sites[siteId]:null;if(SIMPLE&&regFilter!=='route'&&regFilter!=='civ')regFilter='route';drawRegion()}
 function closeMap(){mapOpen=false;$('mapov').hidden=true;regSel=null}
 function drawRegion(){
   if(!mapOpen)return;
@@ -6176,7 +6227,9 @@ function drawRegion(){
     if(s.visited){g.fillStyle='#e0e0e0';g.fillRect(x,y,1,1)}
     if(s===regSel){g.strokeStyle='#ffffff';g.strokeRect(x-4.5,y-4.5,10,10)}
     if(s.id===RG.cur&&(t*2|0)%2){g.strokeStyle='#ffffff';g.strokeRect(x-4.5,y-4.5,10,10)}}
-  const head=`<b>Region</b> ${[['civ','civilizations'],['famine','famine'],['food','your food'],['route','my route']].map(([k,n])=>`<button class="chip${regFilter===k?' on':''}" data-rf="${k}">${n}</button>`).join('')}<span class="dim">${Object.entries(SITE_T).map(([k,T])=>`<span class="lg"><i style="background:${T.col}"></i>${k}</span>`).join(' ')}</span><span style="flex:1"></span><button data-close="1" aria-label="Close map">✕</button>`;
+  const head=SIMPLE
+    ?`<b>Region</b> ${[['route','my route'],['civ','civilizations']].map(([k,n])=>`<button class="chip${regFilter===k?' on':''}" data-rf="${k}">${n}</button>`).join('')}<span style="flex:1"></span><button data-close="1" aria-label="Close map">✕</button>`
+    :`<b>Region</b> ${[['civ','civilizations'],['famine','famine'],['food','your food'],['route','my route']].map(([k,n])=>`<button class="chip${regFilter===k?' on':''}" data-rf="${k}">${n}</button>`).join('')}<span class="dim">${Object.entries(SITE_T).map(([k,T])=>`<span class="lg"><i style="background:${T.col}"></i>${k}</span>`).join(' ')}</span><span style="flex:1"></span><button data-close="1" aria-label="Close map">✕</button>`;
   if($('maphead').innerHTML!==head)$('maphead').innerHTML=head;
   const s=regSel;if(!s){$('regcard').hidden=true;return}
   const r=routes.filter(r=>r.to===s.id).map(r=>TH[r.tid].n),recent=chronicleFor(s.id);
@@ -6201,7 +6254,9 @@ function uiTick(){
   const th=a.intent?a.intent.th:(a.lastHit>0?null:undefined);if(th!==curTh)curTh=th;
   renderMind();renderLib();renderSheet();renderCard();renderToasts();routeCache=routePreview();if(mapOpen)drawRegion();
   const it=a.intent;let now=a.dead?'The vessel is gone.':placing?`Tap where ${TH[placing].n} should go.`:dragAdd?$('now').textContent:it?`now: ${it.th?TH[it.th].n:'Instinct'} › ${it.v.toLowerCase()} › ${it.lab||''}${a.busy?'  '+bar(a.busy.t0-a.busy.t,a.busy.t0,6):''}`:a.busy?'now: busy':'now: nothing in the Mind applies.';
-  if(!it&&!a.busy&&(a.idleT||0)>10&&!placing){now+=' Try a Thought marked ★ in the Memory.';if(idleHinted!==RG.cur){idleHinted=RG.cur;log(`${a.comp.name} has nothing to do here. Memory cards marked ★ would act here.`,'acc')}}
+  const needMem=!it&&!a.busy&&(a.idleT||0)>10&&!placing&&!a.dead;
+  if(needMem){now+=' Try a Thought marked ★ in the Memory.';if(idleHinted!==RG.cur){idleHinted=RG.cur;log(`${a.comp.name} has nothing to do here. Memory cards marked ★ would act here.`,'acc');if(SIMPLE)flashPanel(NARROW()||layout==='bottom'?'dock':'drawer')}}
+  const mem=$('dock-mem');if(mem)mem.classList.toggle('need',!!(SIMPLE&&needMem));
   if(!dragAdd)$('now').textContent=now;
   $('hdr-site').textContent=SIMPLE?s.name:`${s.name} . t${depth-1} . ${PH_NAME[phase]} . ${fmtT(stats.t)}`;$('hdr-site').title=`${s.name}, tier ${depth-1}: ${PH_NAME[phase]}. Open the region map.`;
   const hp=a.hp/a.maxHp,en=a.energy/a.maxEnergy;
@@ -6210,11 +6265,157 @@ function uiTick(){
   $('b-pause').textContent=paused?'▶':'▌▌';$('b-speed').textContent='x'+speed;
 }
 // ---------------------------------------------------------------- menu, keys, dialogs
-let traceOn=true,menuOpen=false;
+let traceOn=true,menuOpen=false,menuMore=false;
+// ---------------------------------------------------------------- multiplayer client
+let netClient=null;
+const NET_RELAY_DEFAULT=(()=>{try{return localStorage.getItem('mindvessel.relay')||'ws://127.0.0.1:7474'}catch(e){return'ws://127.0.0.1:7474'}})();
+const NET_TOKEN_KEY='mindvessel.net.token';
+const NET_LOBBY_DEFAULT='http://127.0.0.1:7777';
+function netActive(){return!!(netClient&&netClient.ws&&netClient.ws.readyState===1)}
+function netSend(msg){if(!netActive())return;const payload=netClient.mode==='relay'?{t:'relay',playerId:netClient.playerId,msg}:msg;netClient.ws.send(JSON.stringify(payload))}
+function updNetBadge(){
+  const el=$('net-badge');if(!el)return;
+  if(netActive()){el.classList.add('on');el.textContent='● '+(netClient.party&&netClient.party.length?('friends '+(1+netClient.party.length)):'friends');el.title='Connected — click for multiplayer'}
+  else{el.classList.remove('on');el.textContent='● friends'}
+}
+function netOnMsg(raw){
+  let msg;try{msg=JSON.parse(raw)}catch(e){return}
+  if(msg.t==='relay'&&msg.msg)msg=msg.msg;
+  if(msg.t==='joined'){netClient.clientId=msg.clientId;netSendHello();return}
+  if(msg.t==='welcome'){
+    netClient.playerId=msg.playerId;netClient.token=msg.token;netClient.party=msg.party||[];
+    try{localStorage.setItem(NET_TOKEN_KEY,msg.token)}catch(e){}
+    if(msg.vessel&&player){player.mind=msg.vessel.mind.slice();save.mind=player.mind.slice();if(msg.vessel.lib)save.lib=msg.vessel.lib.slice();mindSig='';renderMind();renderLib()}
+    paused=false;log('Joined friends\' world.','acc');if(player)bark(player,'signal open','idea');updNetBadge();updFk();return;
+  }
+  if(msg.t==='you.vessel'&&player){if(msg.mind){player.mind=msg.mind.slice();save.mind=player.mind.slice();mindSig='';renderMind()}if(msg.x!=null){player.x=msg.x;player.y=msg.y}if(msg.hp!=null)player.hp=msg.hp;return}
+  if(msg.t==='vote.state'){netClient.vote=msg;if(msg.active===false){if(msg.paused!=null){/* host time — local UI hint */}if(msg.speed!=null)speed=msg.speed}updFk();return}
+  if(msg.t==='signal.fx'){if(player)bark(player,(msg.name||'?')+': '+(msg.text||''),'idea');return}
+  if(msg.t==='party'){netClient.party=msg.party||[];updNetBadge();return}
+  if(msg.t==='kick'){log('Left world: '+(msg.reason||'disconnected'),'bad');netDisconnect();return}
+  if(msg.t==='error'){log('Could not join: '+friendlyNetErr(msg.error),'bad');return}
+}
+function friendlyNetErr(e){
+  return({no_room:'No world with that code — is the host still running?',bad_password:'Wrong password.',full:'World is full.',banned:'You are banned from this world.',host_gone:'Host went offline.'})[e]||e||'unknown error';
+}
+function netSendHello(){
+  let token=null;try{token=localStorage.getItem(NET_TOKEN_KEY)}catch(e){}
+  const hello={t:'hello',displayName:player&&player.comp?player.comp.name:'Vessel',token:token||undefined,party:true};
+  if(netClient.password)hello.password=netClient.password;
+  netSend(hello);
+}
+function netDisconnect(){if(netClient&&netClient.ws)try{netClient.ws.close()}catch(e){}netClient=null;updNetBadge();updFk()}
+function netConnectDirect(url,password){
+  netDisconnect();
+  const ws=new WebSocket(url);
+  netClient={ws,mode:'direct',password:password||null,vote:null,party:[]};
+  ws.onmessage=ev=>netOnMsg(ev.data);
+  ws.onopen=()=>{log('Connecting…','dim');netSendHello()};
+  ws.onclose=()=>{if(netClient&&netClient.ws===ws){log('Disconnected.','dim');netClient=null;updNetBadge();updFk()}};
+  ws.onerror=()=>log('Could not reach host.','bad');
+}
+function netConnectRelay(code,password,relayUrl){
+  netDisconnect();
+  const url=relayUrl||NET_RELAY_DEFAULT;
+  const ws=new WebSocket(url);
+  netClient={ws,mode:'relay',password:password||null,vote:null,party:[],code:String(code).toUpperCase()};
+  ws.onmessage=ev=>netOnMsg(ev.data);
+  ws.onopen=()=>{log('Looking up world '+netClient.code+'…','dim');ws.send(JSON.stringify({t:'client.join',code:netClient.code,password:password||undefined}))};
+  ws.onclose=()=>{if(netClient&&netClient.ws===ws){log('Disconnected.','dim');netClient=null;updNetBadge();updFk()}};
+  ws.onerror=()=>log('Could not reach relay.','bad');
+}
+function netPushMind(){if(netActive()&&player)netSend({t:'mind.set',mind:player.mind.slice()})}
+function netProposeVote(action,spd){if(!netActive())return false;netSend({t:'vote',action,speed:spd});log('Vote: '+action+(spd?' ×'+spd:''),'acc');return true}
+function netSignal(text){if(!netActive())return;netSend({t:'signal',text:String(text||'…').slice(0,48)});if(player)bark(player,String(text||'…'),'idea')}
+async function probeLocalLobby(){
+  try{const r=await fetch(NET_LOBBY_DEFAULT+'/api/status',{mode:'cors'});if(!r.ok)return null;return await r.json()}catch(e){return null}
+}
+function showFriendsDlg(tab){
+  tab=tab||'join';
+  const body=`<div class="tabs"><button type="button" data-ftab="join" class="${tab==='join'?'on':''}">Join</button><button type="button" data-ftab="host" class="${tab==='host'?'on':''}">Host a world</button></div>
+<div id="ftab-join" ${tab==='join'?'':'hidden'}>
+  <p>Paste the code your friend shared (from their lobby).</p>
+  <label>Join code<input id="join-code" type="text" maxlength="12" placeholder="ABC123" autocomplete="off" spellcheck="false"></label>
+  <label>Password <span class="dim">(only if they set one)</span><input id="join-pass" type="password" autocomplete="off"></label>
+  <div class="actions"><button type="button" class="primary" data-faction="join">Join world</button></div>
+  <p id="join-local" class="okline" hidden></p>
+  <details><summary>Advanced</summary>
+    <label>Relay URL<input id="join-relay" type="text" value="${esc(NET_RELAY_DEFAULT)}"></label>
+    <label>Or direct WebSocket URL<input id="join-ws" type="text" placeholder="ws://127.0.0.1:7777"></label>
+  </details>
+</div>
+<div id="ftab-host" ${tab==='host'?'':'hidden'}>
+  <p><b>1.</b> In Finder, open this game’s folder (same place as <code>mind-vessel.html</code>).</p>
+  <p><b>2.</b> Double-click <b>MIND VESSEL Host</b> (the app).</p>
+  <p class="dim">First time: right-click → Open → Open. Keep the app running in the Dock while you play.</p>
+  <p><b>3.</b> A lobby page opens with a big join code — send that to friends.</p>
+  <div class="actions"><button type="button" class="primary" data-faction="lobby">Open lobby</button></div>
+  <p id="host-detect" class="okline" hidden></p>
+  <details><summary>If the app won’t open</summary>
+    <p class="dim">Install Node.js LTS from nodejs.org, then try again. Or double-click <code>Start World.command</code>.</p>
+  </details>
+</div>`;
+  const disc=netActive()?`<div class="actions"><button type="button" data-faction="disc">Disconnect</button></div>`:'';
+  showDlg('Play with friends',body+disc,'Close',null);
+  const root=$('dlg-b');
+  root.querySelectorAll('[data-ftab]').forEach(b=>b.addEventListener('click',()=>{
+    root.querySelectorAll('[data-ftab]').forEach(x=>x.classList.toggle('on',x===b));
+    $('ftab-join').hidden=b.dataset.ftab!=='join';
+    $('ftab-host').hidden=b.dataset.ftab!=='host';
+  }));
+  const doJoin=()=>{
+    const direct=($('join-ws')&&$('join-ws').value||'').trim();
+    const code=($('join-code')&&$('join-code').value||'').trim();
+    const pw=$('join-pass')&&$('join-pass').value||'';
+    const ru=$('join-relay')&&$('join-relay').value||NET_RELAY_DEFAULT;
+    try{localStorage.setItem('mindvessel.relay',ru)}catch(e){}
+    if(direct){netConnectDirect(direct,pw);dlgCb=null;closeDlg();return}
+    if(!code){log('Enter a join code.','bad');return}
+    netConnectRelay(code,pw,ru);dlgCb=null;closeDlg();
+  };
+  root.querySelector('[data-faction="join"]')?.addEventListener('click',doJoin);
+  root.querySelector('[data-faction="disc"]')?.addEventListener('click',()=>{netDisconnect();dlgCb=null;closeDlg()});
+  root.querySelector('[data-faction="lobby"]')?.addEventListener('click',()=>window.open(NET_LOBBY_DEFAULT+'/','_blank'));
+  // Detect local lobby
+  probeLocalLobby().then(s=>{
+    if(!s)return;
+    const jl=$('join-local'),hd=$('host-detect');
+    if(jl&&s.code){jl.hidden=false;jl.innerHTML=`A world is already running here — code <b>${esc(s.code)}</b>. <button type="button" class="primary" id="join-now">Join it</button>`;
+      $('join-now')?.addEventListener('click',()=>{if($('join-code'))$('join-code').value=s.code;netConnectRelay(s.code,'',s.relay||NET_RELAY_DEFAULT);closeDlg()})}
+    if(hd){hd.hidden=false;hd.textContent='Lobby detected — code '+s.code+(s.players!=null?' · '+s.players+' online':'')}
+  });
+  setTimeout(()=>{$('join-code')&&$('join-code').focus()},50);
+}
+function showJoinDlg(){showFriendsDlg('join')}
+function tryAutoJoinFromUrl(){
+  try{
+    const u=new URL(location.href);
+    const code=u.searchParams.get('join');
+    const ws=u.searchParams.get('ws');
+    const pw=u.searchParams.get('pw')||'';
+    const relay=u.searchParams.get('relay');
+    if(relay)try{localStorage.setItem('mindvessel.relay',relay)}catch(e){}
+    if(ws){netConnectDirect(ws,pw);return}
+    if(code){netConnectRelay(code,pw,relay||NET_RELAY_DEFAULT)}
+  }catch(e){}
+}
+
 function renderMenu(){
   if(!menuOpen)return;
   const tg=(on)=>on?'on':'off';
+  const friendsBtn=netActive()
+    ?`<button class="mi hi" data-k="friends">Friends: connected<span class="r">●</span></button><button class="mi" data-k="netsigh">Signal<span class="r">.</span></button><button class="mi" data-k="votep">Vote pause</button><button class="mi" data-k="votes">Vote speed</button><button class="mi" data-k="netdisc">Disconnect</button>`
+    :`<button class="mi hi" data-k="friends">Play with friends…</button>`;
+  if(SIMPLE&&!menuMore){
+    $('menu').innerHTML=`<button class="mi" data-k="u">Interface: Simple<span class="r">U</span></button><button class="mi" data-k="h">Help<span class="r">H</span></button><button class="mi" data-k="m">Region map<span class="r">M</span></button><button class="mi" data-k="t">Theme<span class="r">T</span></button>`+
+      friendsBtn+
+      `<button class="mi" data-more="1">More…</button>`+
+      `<h3>Run</h3><button class="mi" data-k="n">${armed('n')?'Click again to abandon':'Abandon vessel'}<span class="r">N x2</span></button>`;
+    return;
+  }
   $('menu').innerHTML=`<button class="mi" data-k="u">Interface: ${SIMPLE?'Simple':'Detailed'}<span class="r">U</span></button><button class="mi" data-k="h">Help<span class="r">H</span></button><button class="mi" data-k="m">Region map<span class="r">M</span></button><button class="mi" data-k="r">World overlay: ${tg(traceOn)}<span class="r">R</span></button><button class="mi" data-k="d">Dither: ${tg(ditherOn)}<span class="r">D</span></button><button class="mi" data-k="t">Theme<span class="r">T</span></button>`+
+    (SIMPLE?`<button class="mi" data-more="0">Less…</button>`:'')+
+    `<h3>Friends</h3>${friendsBtn}`+
     `<h3>Log</h3>`+[['story','Story'],['detail','Detail'],['region','Region'],['roll','Rolls']].map(([k,n])=>`<button class="mi" data-ch="${k}">${n}: ${tg(LOGCH[k])}</button>`).join('')+
     `<h3>Pause when...</h3>`+[['threat','a threat appears'],['thought','a Thought is learned'],['bored','attention runs out'],['region','news is heard']].map(([k,n])=>`<button class="mi" data-ap="${k}">${n}: ${tg(AUTOPAUSE[k])}</button>`).join('')+
     `<h3>Tools</h3><button class="mi" data-k="debug">Debug settings...<span class="r">F9</span></button>`+
@@ -6270,12 +6471,14 @@ $('debug').addEventListener('input',e=>{const el=e.target,k=el.dataset.db;if(!k)
   if(['normalStrength','normalDetail','normalVolume','normalSmooth'].includes(k))clearNormalCaches();
   saveDbg();renderMenu()});
 document.addEventListener('click',e=>{if(debugOpen&&!e.target.closest('#debug')&&!e.target.closest('#menu'))toggleDebug(false)});
-function toggleMenu(on){menuOpen=on==null?!menuOpen:on;$('menu').hidden=!menuOpen;$('b-menu').setAttribute('aria-expanded',String(menuOpen));renderMenu()}
+function toggleMenu(on){menuOpen=on==null?!menuOpen:on;if(!menuOpen)menuMore=false;$('menu').hidden=!menuOpen;$('b-menu').setAttribute('aria-expanded',String(menuOpen));renderMenu()}
 $('b-menu').addEventListener('click',e=>{e.stopPropagation();toggleMenu()});
 $('menu').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('button');if(!b)return;const d=b.dataset;
-  if(d.k){cmd(d.k);if(d.k==='h'||d.k==='m'||d.k==='debug'||((d.k==='n'||d.k==='w')&&!armed(d.k)&&d.k!==confirmK))toggleMenu(false)}if(d.toast){TOAST[d.toast]=!TOAST[d.toast]}if(d.ch)setChannel(d.ch,!LOGCH[d.ch]);if(d.ap)AUTOPAUSE[d.ap]=!AUTOPAUSE[d.ap];renderMenu()});
-document.addEventListener('click',e=>{if(menuOpen&&!e.target.closest('#menu')&&!e.target.closest('#b-menu'))toggleMenu(false)});
+  if(d.more!=null){menuMore=d.more==='1';renderMenu();return}
+  if(d.k){cmd(d.k);if(d.k==='h'||d.k==='m'||d.k==='debug'||d.k==='friends'||d.k==='netjoin'||d.k==='nethost'||((d.k==='n'||d.k==='w')&&!armed(d.k)&&d.k!==confirmK))toggleMenu(false)}if(d.toast){TOAST[d.toast]=!TOAST[d.toast]}if(d.ch)setChannel(d.ch,!LOGCH[d.ch]);if(d.ap)AUTOPAUSE[d.ap]=!AUTOPAUSE[d.ap];renderMenu()});
 $('b-pause').addEventListener('click',()=>cmd('p'));$('b-speed').addEventListener('click',()=>cmd('s'));
+$('net-badge').addEventListener('click',()=>showFriendsDlg(netActive()?'join':'host'));
+$('net-badge').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showFriendsDlg(netActive()?'join':'host')}});
 function updFk(){uiTick();renderMenu()}
 let confirmK=null,confirmT=0;
 const armed=k=>confirmK===k&&performance.now()-confirmT<2500;
@@ -6287,8 +6490,17 @@ function cmd(k){
       // #region agent log
       _dbgLog('A','cmd:pause','pause toggled',{to:!paused,from:paused,stack:String(new Error().stack||'').split('\n').slice(1,5).map(s=>s.trim())});
       // #endregion
+      if(typeof netActive==='function'&&netActive()){netProposeVote(paused?'resume':'pause');break}
       paused=!paused;break;
-    case's':speed=speed===1?2:speed===2?4:1;break;
+    case's':
+      if(typeof netActive==='function'&&netActive()){netProposeVote('speed',speed===1?2:speed===2?4:1);break}
+      speed=speed===1?2:speed===2?4:1;break;
+    case'friends':case'netjoin':showFriendsDlg('join');break;
+    case'nethost':showFriendsDlg('host');break;
+    case'netdisc':netDisconnect();break;
+    case'netsigh':netSignal(PICK(['here','duct','wait','move','mark','…']));break;
+    case'votep':netProposeVote(paused?'resume':'pause');break;
+    case'votes':netProposeVote('speed',speed===1?2:speed===2?4:1);break;
     case'd':ditherOn=!ditherOn;saveDbg();renderDebug();break;
     case'debug':toggleDebug();break;
     case'u':setSimple(!SIMPLE);break;
@@ -6331,32 +6543,26 @@ function startAutoRestart(){stopAutoRestart();arLeft=AR_SECS;const show=()=>{con
   arTimer=setInterval(()=>{arLeft--;if(arLeft<=0){stopAutoRestart();if(dlgOpen&&player&&player.dead)closeDlg();return}show()},1000)}
 $('dlg-ok').addEventListener('click',closeDlg);
 function coachMemStep(){
-  // Simple: Memory is often closed — point at ＋. Bottom layout keeps Memory open beside the Mind.
   if(SIMPLE){
-    if(libShown())return['lib','The <b>Memory</b> holds this vessel\'s Thoughts. Cards that pulse would act here right now; tap + on a card to add it to the Mind.'];
-    if($('mind-add'))return['mind-add','＋ opens <b>Memory</b> — this vessel\'s Thoughts. Cards that pulse would act here; tap + on a card to add it to the Mind.'];
-    return['dock','＋ or <b>L</b> opens <b>Memory</b> — this vessel\'s Thoughts. Cards that pulse would act here; tap + on a card to add it to the Mind.'];
+    if(libShown())return['lib','The <b>Memory</b> holds this vessel\'s Thoughts. Cards that pulse would act here; tap + on a card to add it.'];
+    return['dock-mem','＋ opens <b>Memory</b>. Cards that pulse would act here; tap + on a card to add it.'];
   }
   if(!libShown()){if(layout==='side')toggleDrawer(true);else if(layout==='phone')showDock('lib');else showDock('mind')}
   return['libinfo','The <b>Memory</b> holds this vessel\'s Thoughts. ★ would act here right now. Drag onto the Mind, or press ＋ to add at the best slot.'];
 }
-const COACH_N=6;
+const COACH_N=3;
 function coach(i){const c=$('coach');for(const p of document.querySelectorAll('.coached'))p.classList.remove('coached');
   if(i>=COACH_N){c.hidden=true;try{localStorage.setItem('mindvessel.coached5','1')}catch(e){}return}
   const step=i===1?coachMemStep():[
-    ['dock','The vessel\'s <b>Mind</b>. The first Thought from the top that can act drives it. ▶ running . ✗ blocked . . waiting. Drag to reorder; ＋ opens Memory.'],
+    ['dock','The vessel\'s <b>Mind</b>. Top Thought that can act drives it. ▶ runs · ✗ blocked · . waits. Drag to reorder.'],
     null,
     ['vw','Tap anything in the world to see what it is and which Thoughts would use it.'],
-    ['ducts','The amber bar under a running Thought is <b>attention</b>. When it fills, travel takes over. Travel rows show → site; known ducts light when travel is in play.'],
-    ['vw','Creatures teach only if you <b>Study</b> them. People mutter news — a social Thought (Listen, Barter, Proselytize) hears full lines; otherwise only fragments.'],
-    ['b-menu','Press <b>U</b> for Detailed mode: reason text, log, full vessel sheet. Simple mode stays glyph-first.'],
   ][i];
   const[id,txt]=step,el=$(id)||$('dock'),r=el.getBoundingClientRect();c.hidden=false;c.innerHTML=`<div>${txt}</div><div class="cb"><span class="dim">${i+1}/${COACH_N}</span><button id="coach-skip">Skip</button><button id="coach-next">[ ${i===COACH_N-1?'Got it':'Next'} ]</button></div>`;
   const w=Math.min(380,innerWidth-24);c.style.width=w+'px';c.style.left=clamp(r.left+12,12,innerWidth-w-12)+'px';c.style.top=clamp(r.top+12,12,innerHeight-180)+'px';
   el.classList.add('coached');$('coach-next').onclick=()=>coach(i+1);$('coach-skip').onclick=()=>coach(COACH_N);$('coach-next').focus()}
 const START=`<p>You don't steer this vessel. You shape its <b>Mind</b>.</p>
 <p>The Mind is a list of Thoughts. Several times a second the vessel reads it from the top and does the first one that can act. Add, remove and reorder Thoughts while it lives.</p>
-<p>Sites work three ways at once: <b>smoke and hide</b>, <b>stamp and meter</b>, <b>badge and live lines</b>. Same problems; different hands.</p>
 <p class="dim">H help . Space pause</p>`;
 const HELP=`<p>You never move the vessel. You shape its <b>Mind</b>, live, while it acts.</p>
 <p>The Mind reads from the top several times a second. Inside each Thought it tries the verbs in order; a verb runs only if its condition holds and it has something to do. Rows show ▶ running, ✗ condition false, - nothing to do, ⏸ out of attention. Select a row to see each verb and why. Drag rows (or Shift+↑↓, or ▲▼ on a phone) to reorder; x removes. Attention runs out with open-ended work at one site, and then lower Thoughts such as travel take over.</p>
@@ -6368,12 +6574,11 @@ const HELP=`<p>You never move the vessel. You shape its <b>Mind</b>, live, while
 <p>Thoughts die with the vessel. An inscription, a rack, a beacon or a sealed duct is a thing left in the world, and the region keeps it.</p>
 <p class="dim">Space pause . S speed . M map . L memory . B vessel . G log . R world overlay . V rolls . D dither . F9 debug . N new vessel . T theme . Esc close</p>`;
 function glyphLegend(){
-  const groups={};for(const[v,g]of Object.entries(VERB_G))(groups[g]=groups[g]||[]).push(v.toLowerCase());
-  const conds=[['heart','health'],['bolt','energy'],['warn','threat, or not safe'],['moon','darkness, or out of attention'],['crowd','outnumbered'],['food','low on food']];
+  const conds=[['heart','health'],['bolt','energy'],['warn','blocked (threat or other)'],['moon','dark / attention'],['crowd','outnumbered'],['food','low on food']];
   const chip=(g,t,c)=>`<span style="display:inline-flex;gap:.3em;align-items:center;margin:0 .9em .2em 0">${ico(g,c)} <span class="dim">${t}</span></span>`;
-  return`<p><b>Simple mode.</b> The Mind reads top to bottom: ▶ runs, ✗ is blocked (the icon says why), . is waiting. The amber bar under the running Thought is attention. Tap a Thought to see its verbs; tap it again for its card. ＋ opens Memory; cards that pulse would act here right now; tap a card to read it. Tap anything in the world for its card; ▾ shows everything. Tap your vessel for its sheet. U switches to Detailed mode.</p>
-<p>${Object.entries(groups).map(([g,vs])=>chip(g,vs.join(', '))).join('')}</p><p>${conds.map(([g,n])=>chip(g,n,'bad')).join('')}</p>`}
-function showHelp(){showDlg('MIND//VESSEL',(SIMPLE?glyphLegend():'')+HELP,'Continue',null)}
+  return`<p><b>Simple mode.</b> Mind reads top → bottom: ▶ runs · ✗ blocked · . waits. Amber bar = attention. Tap a Thought for verbs; tap again (▾) for its card. ＋ opens Memory; pulsing cards would act here. Tap the world for a card. <span class="dim">U</span> = Detailed.</p>
+<p>${conds.map(([g,n])=>chip(g,n,'bad')).join('')}</p>`}
+function showHelp(){showDlg('MIND//VESSEL',SIMPLE?glyphLegend():HELP,'Continue',null)}
 function showDeath(){
   const C=player.comp;closeCard();placing=null;
   const site=RG.sites[RG.cur],reg=primaryReg(site),regN={bone:'smoke and hide',plate:'stamp and meter',lease:'badge and line'}[reg]||reg;
@@ -6387,7 +6592,9 @@ function showDeath(){
 }
 renderLogBar();applyLayout();setSheet('half');
 $('hb-hp').insertAdjacentHTML('afterbegin',ico('heart','s'));$('hb-en').insertAdjacentHTML('afterbegin',ico('bolt','s'));
-$('dock-back').addEventListener('click',()=>showDock('mind'));$('app').classList.toggle('simple',SIMPLE);
+$('dock-back').addEventListener('click',()=>showDock('mind'));
+$('dock-mem').addEventListener('click',()=>cmd('l'));
+$('app').classList.toggle('simple',SIMPLE);
 
 
 globalThis.__hl=()=>insp||(hoverPick&&hoverPick.kind!=='tile'?hoverPick:hoverPick&&{...hoverPick,pinned:false});
@@ -6557,7 +6764,7 @@ function frame(now){
 let uiT=0;
 const resumed=loadCampaign()===true;if(!resumed)newVessel();
 updFk();uiTick();
-showDlg('MIND//VESSEL',START,resumed?'Continue':'Begin',()=>{let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}if(!done)coach(0)});
+showDlg('MIND//VESSEL',START,resumed?'Continue':'Begin',()=>{tryAutoJoinFromUrl();let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}if(!done)coach(0)});
 requestAnimationFrame(frame);
 </script>
 </body>

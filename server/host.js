@@ -118,11 +118,14 @@ async function main() {
     }
   }
 
+  let joinCode = null;
+  const ROOT = path.resolve(__dirname, '..');
+  const lobbyHtml = fs.readFileSync(path.join(__dirname, 'lobby.html'), 'utf8');
+  const gameHtmlPath = path.join(ROOT, 'mind-vessel.html');
+
   if (args.relay) {
-    const relayUrl = args.relay.replace(/\/$/, '') + (args.relay.includes('?') ? '&' : '?') + 'role=host';
     const connectRelay = () => {
-      const ws = new WebSocket(args.relay, { headers: {} });
-      // protocol: first message register
+      const ws = new WebSocket(args.relay);
       ws.on('open', () => {
         ws.send(encode({ t: 'host.register', password: args.password || null }));
       });
@@ -130,28 +133,23 @@ async function main() {
         try {
           const msg = decode(data);
           if (msg.t === 'host.registered') {
-            console.log('Registered with relay. Join code:', msg.code);
+            joinCode = String(msg.code || '').toUpperCase();
+            console.log('');
+            console.log('  Join code:', joinCode);
+            console.log('  Lobby:    http://127.0.0.1:' + args.port + '/');
+            console.log('');
+            return;
+          }
+          if (msg.t === 'client.gone') {
+            const pid = relayPlayers.get(msg.clientId);
+            if (pid) {
+              host.onDisconnect(pid);
+              relayPlayers.delete(msg.clientId);
+            }
             return;
           }
           if (msg.t === 'relay' && msg.fromClient != null) {
-            // multiplexed client frame
-            const clientId = msg.fromClient;
-            let playerId = msg.playerId || null;
-            const inner = msg.msg;
-            if (inner.t === 'hello') {
-              const fakeSend = (pid, m) => {
-                ws.send(encode({ t: 'relay', toClient: clientId, playerId: pid, msg: m }));
-                if (m.t === 'welcome') {
-                  // track mapping
-                  sockets.set(pid, { readyState: WebSocket.OPEN, send: d => ws.send(encode({ t: 'relay', toClient: clientId, playerId: pid, msg: JSON.parse(d) })) });
-                  // simpler path: store clientId mapping
-                }
-              };
-              // Use a thin adapter per clientId
-              handleRelayClient(ws, clientId, inner);
-            } else {
-              handleRelayClient(ws, clientId, inner, msg.playerId);
-            }
+            handleRelayClient(ws, msg.fromClient, msg.msg, msg.playerId);
           }
         } catch (e) {
           console.warn('relay msg', e);
@@ -167,8 +165,6 @@ async function main() {
       const send = (playerId, m) => {
         relayWs.send(encode({ t: 'relay', toClient: clientId, playerId, msg: m }));
       };
-      // temporarily override host send for this call — use dedicated createHost per... messy.
-      // Inline minimal handling:
       if (inner.t === 'hello') {
         const res = g.mpHello({ token: inner.token, displayName: inner.displayName, name: inner.name, password: inner.claimPass, party: !!inner.party });
         if (res.error) {
@@ -184,26 +180,63 @@ async function main() {
       }
       const playerId = knownPlayerId || relayPlayers.get(clientId);
       if (!playerId) return;
-      // patch send into a one-shot host call
-      const h = createHost(g, { send: (pid, m) => send(pid, m), broadcast: (m, ex) => {
-        for (const [cid, pid] of relayPlayers) {
-          if (pid !== ex) relayWs.send(encode({ t: 'relay', toClient: cid, playerId: pid, msg: m }));
-        }
-      }});
+      const h = createHost(g, {
+        send: (pid, m) => send(pid, m),
+        broadcast: (m, ex) => {
+          for (const [cid, pid] of relayPlayers) {
+            if (pid !== ex) relayWs.send(encode({ t: 'relay', toClient: cid, playerId: pid, msg: m }));
+          }
+        },
+      });
       h.onMessage(inner, { playerId });
     }
 
     connectRelay();
   }
 
+  function statusJson() {
+    const mp = g.MP;
+    return {
+      code: joinCode,
+      relay: args.relay || null,
+      hasPassword: !!args.password,
+      players: mp ? mp.connected.size : 0,
+      worldName: args.world ? path.basename(args.world, '.json') : 'memory',
+      gameUrl: '/play',
+      wsDirect: 'ws://127.0.0.1:' + args.port,
+    };
+  }
+
   const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('MIND//VESSEL host\n');
+    const u = new URL(req.url || '/', 'http://127.0.0.1');
+    if (u.pathname === '/api/status') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(statusJson()));
+      return;
+    }
+    if (u.pathname === '/play' || u.pathname === '/mind-vessel.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(fs.readFileSync(gameHtmlPath));
+      return;
+    }
+    if (u.pathname === '/' || u.pathname === '/lobby') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(lobbyHtml);
+      return;
+    }
+    if (u.pathname === '/PerfectDOS.ttf' && fs.existsSync(path.join(ROOT, 'PerfectDOS.ttf'))) {
+      res.writeHead(200, { 'Content-Type': 'font/ttf' });
+      res.end(fs.readFileSync(path.join(ROOT, 'PerfectDOS.ttf')));
+      return;
+    }
+    res.writeHead(404);
+    res.end('not found');
   });
   const wss = new WebSocketServer({ server });
   wss.on('connection', ws => attachWs(ws, 'client'));
   server.listen(args.port, () => {
-    console.log(`Host listening ws://127.0.0.1:${args.port}`);
+    console.log(`Host lobby http://127.0.0.1:${args.port}/`);
+    console.log(`Direct WS  ws://127.0.0.1:${args.port}`);
     if (args.world) console.log('World file:', args.world);
   });
 

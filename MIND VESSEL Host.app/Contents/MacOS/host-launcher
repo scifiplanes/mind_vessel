@@ -1,0 +1,114 @@
+#!/bin/bash
+# macOS app entry — double-click in Finder; no Terminal window.
+set -e
+
+APP_CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
+APP_BUNDLE="$(cd "$APP_CONTENTS/.." && pwd)"
+PROJECT="$(cd "$APP_BUNDLE/.." && pwd)"
+LOG="$HOME/Library/Logs/mind-vessel-host.log"
+PIDFILE="$HOME/Library/Application Support/mind-vessel/host.pid"
+LOBBY="http://127.0.0.1:7777/"
+mkdir -p "$(dirname "$PIDFILE")" "$(dirname "$LOG")"
+
+alert() {
+  osascript -e "display alert \"$1\" message \"$2\" as $3 buttons {\"OK\"} default button \"OK\"" >/dev/null 2>&1 || true
+}
+
+notify() {
+  osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1 || true
+}
+
+stop_previous() {
+  if [ -f "$PIDFILE" ]; then
+    OLD="$(cat "$PIDFILE" 2>/dev/null || true)"
+    if [ -n "$OLD" ]; then
+      kill "$OLD" 2>/dev/null || true
+      sleep 0.4
+      kill -9 "$OLD" 2>/dev/null || true
+    fi
+    rm -f "$PIDFILE"
+  fi
+  # orphan cleanup (ports 7474 / 7777)
+  for port in 7474 7777; do
+    pids=$(lsof -ti tcp:$port 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+      kill $pids 2>/dev/null || true
+    fi
+  done
+}
+
+# GUI apps often miss Homebrew/nvm PATH
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+if [ -d "$HOME/.nvm/versions/node" ]; then
+  LATEST="$(ls "$HOME/.nvm/versions/node" 2>/dev/null | tail -1)"
+  [ -n "$LATEST" ] && export PATH="$HOME/.nvm/versions/node/$LATEST/bin:$PATH"
+fi
+
+NODE="$(command -v node || true)"
+NPM="$(command -v npm || true)"
+for c in /opt/homebrew/bin/node /usr/local/bin/node; do
+  [ -z "$NODE" ] && [ -x "$c" ] && NODE="$c"
+done
+for c in /opt/homebrew/bin/npm /usr/local/bin/npm; do
+  [ -z "$NPM" ] && [ -x "$c" ] && NPM="$c"
+done
+
+if [ -z "$NODE" ] || [ -z "$NPM" ]; then
+  alert "Node.js required" "Install Node.js LTS from nodejs.org (the big green button), then open MIND VESSEL Host again." critical
+  open "https://nodejs.org/en/download"
+  exit 1
+fi
+
+cd "$PROJECT" || {
+  alert "Project not found" "Keep “MIND VESSEL Host” in the same folder as mind-vessel.html." critical
+  exit 1
+}
+
+stop_previous
+
+if [ ! -d node_modules ]; then
+  notify "MIND VESSEL Host" "First run: installing… about a minute"
+  "$NPM" install >>"$LOG" 2>&1 || {
+    alert "Install failed" "Open the log for details." critical
+    open "$LOG" 2>/dev/null || true
+    exit 1
+  }
+fi
+
+notify "MIND VESSEL Host" "Starting world…"
+"$NODE" "$PROJECT/scripts/start.js" >>"$LOG" 2>&1 &
+START_PID=$!
+echo "$START_PID" >"$PIDFILE"
+
+cleanup() {
+  if [ -n "$START_PID" ]; then
+    kill "$START_PID" 2>/dev/null || true
+    sleep 0.3
+    kill -9 "$START_PID" 2>/dev/null || true
+  fi
+  stop_previous
+}
+trap cleanup EXIT INT TERM
+
+opened=0
+for i in $(seq 1 80); do
+  if curl -sf "$LOBBY" >/dev/null 2>&1; then
+    open "$LOBBY"
+    opened=1
+    notify "MIND VESSEL Host" "World is up — share the join code from the lobby"
+    break
+  fi
+  if ! kill -0 "$START_PID" 2>/dev/null; then
+    alert "Host failed" "Could not start. Opening the log." critical
+    open "$LOG" 2>/dev/null || true
+    exit 1
+  fi
+  sleep 0.5
+done
+
+if [ "$opened" -eq 0 ]; then
+  alert "Still starting" "Lobby is slow. Check $LOG if the browser never opens." warning
+fi
+
+# Keep the app alive in the Dock until Quit (or start.js exits)
+wait "$START_PID" || true
