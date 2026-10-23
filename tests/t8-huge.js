@@ -21,9 +21,35 @@ async function main() {
   const tl = { x: Math.round(hunt.x - 1.5), y: Math.round(hunt.y - 1.5) };
   assert.ok(g.canSit(tl.x, tl.y, 3, 3, hunt) || true);
 
-  // sleeping mass blocks walk
-  const mass = g.spawnAt('plant', 'Yardmass');
-  assert.ok(mass, 'spawn Yardmass');
+  // sleeping mass blocks walk (clear others; park vessel so min-distance doesn't starve 5×5)
+  g.actors = g.actors.filter(a => a === g.player);
+  const _px = g.player.x, _py = g.player.y;
+  g.player.x = -30; g.player.y = -30;
+  let mass = null;
+  for (const kind of ['Yardmass', 'Slagheap', 'Busmass']) {
+    for (let i = 0; i < 60 && !mass; i++) mass = g.spawnAt('plant', kind);
+    if (mass) break;
+  }
+  if (!mass && g.makeCreatureKind) {
+    const tryFoot = (x0, y0, w, h) => {
+      for (let y = y0; y <= y0 + h - 5; y++) {
+        for (let x = x0; x <= x0 + w - 5; x++) {
+          if (!g.canSit(x, y, 5, 5, null)) continue;
+          const m = g.makeCreatureKind(x + 2.5, y + 2.5, 'Yardmass');
+          g.actors.push(m);
+          return m;
+        }
+      }
+      return null;
+    };
+    if (g.rooms && g.rooms.length) {
+      const r = g.rooms.slice().sort((a, b) => b.w * b.h - a.w * a.h)[0];
+      mass = tryFoot(r.x, r.y, r.w, r.h);
+    }
+    if (!mass) mass = tryFoot(1, 1, g.MW - 2, g.MH - 2);
+  }
+  g.player.x = _px; g.player.y = _py;
+  assert.ok(mass, 'spawn sleeping mass');
   assert.ok(mass.asleep, 'asleep');
   assert.ok(g.aname(mass).includes('sleep'), 'name marks sleep');
   const mtx = Math.round(mass.x - 2.5), mty = Math.round(mass.y - 2.5);

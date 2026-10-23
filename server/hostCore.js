@@ -14,6 +14,9 @@ function createHost(g, opts = {}) {
     }
   });
   const sessions = new Map(); // playerId -> meta
+  const lastSiteSig = new Map();
+  const lastVesselSig = new Map();
+  const lastMindKey = new Map();
   let vote = null;
 
   function siteSnapshot(siteId, forPlayerId) {
@@ -35,6 +38,19 @@ function createHost(g, opts = {}) {
     });
   }
 
+  function siteSig(snap) {
+    let s = snap.siteId + '@' + snap.tick + '#' + (snap.gameTime | 0) + '|';
+    for (const a of snap.actors) s += a.id + ':' + (a.x * 10 | 0) + ',' + (a.y * 10 | 0) + ',' + (a.hp | 0) + ';';
+    for (const o of snap.objs) s += (o.k || '') + (o.sub || '') + (o.x | 0) + ',' + (o.y | 0) + ';';
+    return s;
+  }
+
+  function clearNetCache(playerId) {
+    lastSiteSig.delete(playerId);
+    lastVesselSig.delete(playerId);
+    lastMindKey.delete(playerId);
+  }
+
   function regionSoft(viewerId) {
     const presence = g.partyPresence(viewerId);
     return {
@@ -48,7 +64,7 @@ function createHost(g, opts = {}) {
 
   function worldForClient() {
     if (typeof g.saveCampaignBlob !== 'function') return null;
-    const blob = g.saveCampaignBlob();
+    const blob = g.saveCampaignBlob({ slim: true });
     if (!blob || !blob.RG) return null;
     // Region + clocks only — each client keeps its own vessel from welcome.vessel
     return {
@@ -118,6 +134,7 @@ function createHost(g, opts = {}) {
       // Bind transport before welcome — otherwise send(playerId) misses the still-pending socket
       if (typeof ctx.bind === 'function') ctx.bind(res.playerId);
       const deliverTo = res.playerId;
+      clearNetCache(deliverTo);
       send(deliverTo, welcomePayload(res.playerId));
       send(deliverTo, regionSoft(res.playerId));
       return res.playerId;
@@ -131,6 +148,8 @@ function createHost(g, opts = {}) {
 
     if (msg.t === 'mind.set') {
       g.setPlayerMind(playerId, msg.mind);
+      lastMindKey.delete(playerId);
+      lastVesselSig.delete(playerId);
       send(playerId, { t: 'you.vessel', mind: g.MP.players.get(playerId).vessel.mind.slice() });
       return playerId;
     }
@@ -239,22 +258,38 @@ function createHost(g, opts = {}) {
     if (!playerId) return;
     g.despawnPlayer(playerId);
     sessions.delete(playerId);
+    clearNetCache(playerId);
   }
 
   function tick(dt) {
     if (g.paused) return;
     const n = g.speed || 1;
     for (let i = 0; i < n; i++) g.hostTick(dt);
-    // push deltas to connected
+    // one snapshot per hot site; skip unchanged site/vessel payloads
+    const sitePacks = new Map();
     for (const playerId of g.MP.connected) {
       const rec = g.MP.players.get(playerId);
       if (!rec || rec.stashed || rec.siteId == null) continue;
-      send(playerId, { t: 'site.delta', ...siteSnapshot(rec.siteId, playerId) });
+      let pack = sitePacks.get(rec.siteId);
+      if (!pack) {
+        const snap = siteSnapshot(rec.siteId, playerId);
+        pack = { snap, sig: siteSig(snap) };
+        sitePacks.set(rec.siteId, pack);
+      }
+      if (lastSiteSig.get(playerId) !== pack.sig) {
+        lastSiteSig.set(playerId, pack.sig);
+        send(playerId, { t: 'site.delta', ...pack.snap });
+      }
       const v = rec.vessel;
       const it = v.intent;
-      send(playerId, {
+      const mindKey = v.mind.join('\0');
+      const vesselSig = (v.x * 10 | 0) + ',' + (v.y * 10 | 0) + ',' + (v.hp | 0) + ',' + (v.energy | 0) + ','
+        + ((v.idleT || 0) | 0) + '|' + mindKey + '|' + (it ? it.v + ':' + (it.lab || '') + ':' + (it.th || '') : '')
+        + '|' + (v.busy ? v.busy.type : '') + '|' + ((v.focus && v.focus.all) | 0);
+      if (lastVesselSig.get(playerId) === vesselSig) continue;
+      lastVesselSig.set(playerId, vesselSig);
+      const out = {
         t: 'you.vessel',
-        mind: v.mind.slice(),
         x: v.x,
         y: v.y,
         hp: v.hp,
@@ -263,7 +298,12 @@ function createHost(g, opts = {}) {
         intent: it ? { v: it.v, lab: it.lab || '', th: it.th || null } : null,
         busy: v.busy ? { type: v.busy.type } : null,
         focus: v.focus ? { all: v.focus.all || 0 } : null,
-      });
+      };
+      if (lastMindKey.get(playerId) !== mindKey) {
+        lastMindKey.set(playerId, mindKey);
+        out.mind = v.mind.slice();
+      }
+      send(playerId, out);
     }
   }
 
@@ -279,6 +319,7 @@ function createHost(g, opts = {}) {
     }
     g.despawnPlayer(playerId);
     sessions.delete(playerId);
+    clearNetCache(playerId);
   }
 
   // meet when same site

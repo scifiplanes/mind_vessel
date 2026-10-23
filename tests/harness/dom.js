@@ -86,6 +86,20 @@ globalThis.__MV_G=(function(){
   bindFn('update',update);bindFn('newVessel',newVessel);bindFn('enterSite',enterSite);bindFn('leaveSite',leaveSite);
   bindFn('travel',travel);bindFn('saveCampaign',saveCampaign);bindFn('loadCampaign',loadCampaign);bindFn('clearCampaign',clearCampaign);
   bindFn('think',think);bindFn('act',act);bindFn('followers',followers);bindFn('genRegion',genRegion);
+  if(typeof bfs==='function')bindFn('bfs',bfs);
+  if(typeof idx==='function')bindFn('idx',idx);
+  if(typeof unexploredFor==='function')bindFn('unexploredFor',unexploredFor);
+  if(typeof restNeed==='function')bindFn('restNeed',restNeed);
+  if(typeof restGates==='function')bindFn('restGates',restGates);
+  if(typeof restProfile==='function')bindFn('restProfile',restProfile);
+  if(typeof composeMind==='function')bindFn('composeMind',composeMind);
+  if(typeof mindPool==='function')bindFn('mindPool',mindPool);
+  if(typeof thinkWithMind==='function')bindFn('thinkWithMind',thinkWithMind);
+  if(typeof previewAtFor==='function')bindFn('previewAtFor',previewAtFor);
+  if(typeof startBusy==='function')bindFn('startBusy',startBusy);
+  if(typeof heal==='function')bindFn('heal',heal);
+  if(typeof seenThreats==='function')bindFn('seenThreats',seenThreats);
+  if(typeof fitMind==='function')bindFn('fitMind',fitMind);
   bindFn('flushCurDun',flushCurDun);bindFn('syncSite',syncSite);bindFn('makeActor',makeActor);
   if(typeof bumpAssembly==='function')bindFn('bumpAssembly',bumpAssembly);
   if(typeof competency==='function')bindFn('competency',competency);
@@ -115,6 +129,10 @@ globalThis.__MV_G=(function(){
   if(typeof describeSite==='function')bindFn('describeSite',describeSite);
   if(typeof aname==='function')bindFn('aname',aname);
   if(typeof spawnAt==='function')bindFn('spawnAt',spawnAt);
+  if(typeof makeCreature==='function')bindFn('makeCreature',makeCreature);
+  if(typeof makeCreatureKind==='function')bindFn('makeCreatureKind',makeCreatureKind);
+  Object.defineProperty(g,'rooms',{enumerable:true,get(){return rooms}});
+  Object.defineProperty(g,'map',{enumerable:true,get(){return map}});
   if(typeof patience==='function')bindFn('patience',patience);
   bindFn('serializeActor',serializeActor);bindFn('reviveActor',reviveActor);
   bindFn('serializeCiv',serializeCiv);bindFn('reviveCiv',reviveCiv);
@@ -173,6 +191,8 @@ globalThis.__MV_G=(function(){
   Object.defineProperty(g,'worldSettings',{enumerable:true,get(){return typeof worldSettings!=='undefined'?worldSettings:undefined},set(v){worldSettings=v}});
   Object.defineProperty(g,'MW',{enumerable:true,get(){return MW}});
   Object.defineProperty(g,'MH',{enumerable:true,get(){return MH}});
+  Object.defineProperty(g,'explored',{enumerable:true,get(){return explored}});
+  Object.defineProperty(g,'VERB',{enumerable:true,get(){return VERB}});
   if(typeof saveCampaignBlob!=='function'){
     g.saveCampaignBlob=function(){
       const prev=localStorage.getItem('mindvessel.campaign.v1');

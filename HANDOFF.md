@@ -61,7 +61,8 @@ The script is one `<script>` block, organised in banner-commented sections (sear
 ### Key functions
 
 - `think(a)` — the decision engine; records a per-Thought, per-verb trace in `a.trace` (drives the Mind panel's ▶ ✗ – ⏸ states). `condWhy(a,w)` explains a false condition.
-- `previewAt(tid,at)` / `previewText` / `bestSlot(tid)` — run `think()` on a copy of the Mind with a Thought inserted and restore all touched state; used for ★ "acts here", drag previews and "+ add at the best slot".
+- `previewAt(tid,at)` / `previewAtFor(a,tid,at)` / `previewText` / `bestSlot(tid)` — run `think()` on a copy of the Mind with a Thought inserted and restore all touched state; used for ★ "acts here", drag previews, "+ add at the best slot", and rest `composeMind` scoring.
+- `restNeed` / `restGates` / `composeMind` / `mindPool` — innate rest drive and post-rest Mind recompose (see Rest above).
 - `supplyWant(a)` — which materials the Mind wants; `extractIntent` finds the nearest extractable tile; `wantedBy(mats,how)` — which Thoughts would use something (for cards).
 - `routePreview()` — which duct each travel Thought would take now (Mind rows, duct markers, map).
 - `rlog(msg,siteId)` → `newsAdd()` — every region event becomes news that NPCs and terminals can pass on.
@@ -73,6 +74,8 @@ The script is one `<script>` block, organised in banner-commented sections (sear
 ## 4. Systems summary
 
 **Thoughts and verbs.** ~64 verbs. Categories: Combat, Survival, Stealth, Extraction, Refining, Making, Social, Travel, Broad, Modifier. Broad Thoughts (cost 2) bundle verbs. Conditions: `hpBelow`, `energyBelow`, `energyAbove`, `threat`, `calm`, `outnumbered`, `dark`, `foodLow`, `hot`, `packFull`, `packLow`, `powered`, `restless`, `followerHurt`, `damp`, `light`, `siteDanger`. Travel `to`: deeper, unknown, plenty, kin, safety, ruins, mark, news, remains, power, crew, rite, **rival**. New primitives: **TEND** (feed dying stations from pack), **DISMANTLE** (tear down own builds), **RECRUIT** (peaceful people as followers, player-only). Map-sharing verbs stay player-only. Cross-register *parasite* Thoughts (Cable Smoke, Scrap Cairn, Hide Jack, Ash Meter, Smoke Token, Lease Hide, plus Ash Fight / Break and Run / Clear Out) seed into the "wrong" register so civs mix techniques; Smokekin / Rivetguild / Leasechoir starters sometimes roll one. **Attention:** open-ended work drains `a.focus.all` against `patience(a)` (90 s + 12 s per WIS); when spent, work verbs skip and lower Thoughts (often travel) take over. `FORAGE`, `EXPLORE`, `HOME`, `WANDER`, `STUDY`, `TEND`, `DISMANTLE`, `RECRUIT` are in `WORK`; map-sharing (`ASK`/`RECALL`/`SURVEY`/`SCAN`) stays free.
+
+**Rest (innate + Mind).** Every non-flora body can rest without carrying a Rest Thought: `restNeed` / `restGates` (species-tuned HP/energy thresholds, calm, energy floor; Rig prefers grid or camp; flora/asleep/construct skip). When need is high, `think()` skips grind (`WORK` outside `REST_HOLD`) so combat/flee/feed still win, then innate `REST` fires below INSTINCT. Successful rest busy completion heals (Camp ×2 near fire), sets `restCd`, and runs `composeMind`: reshuffles the **current Mind** into niche order (survive → fight → work → travel → social); Memory only fills empty survive/travel gaps (never injects new work/build broads). Failed build/extract marks the target bad so the Mind cannot softlock on one tile. Build intents use range 1.2 (act from adjacent). Threat clears rest busy with no heal and no rewrite. Vessel Mind dock briefly pulses changed rows. Stuck Mind: do not invent instinct WANDER. EXPLORE pathable fog (BFS 480/900 idle). TRAVEL never markBads ducts; idle uses **all** unsealed exits (fog often hid `explored[e.i]`); pathable only; idle waives return-duct sit. Arrival marks nearby ducts known. LOOT requires a path. Enter site clears idleT/travelTo.
 
 **Material world.** Walls and floors yield materials via specific verbs and turn into other tiles. Materials refine (heat or live conduit for some), assemble into gear and tools by role, build structures (fire, furnace, smoke pit, drying rack, bone cairn, workbench, meter post, stamp anvil, breaker, incubator, badge post, coolant tap, lamp, snares, walls, racks, beacons). Register intermediates: fiber, smoked meat, gasket, coolant, badge token. **Station scarcity:** fire/smoke/lamp/beacon burn fuel as before; press goes cold without nearby heat (craft bonus off); meter/badge/incubator need live power (badge can also drink a token/wafer); chill drinks coolant — fails show as slog + card life, and gate SCAN / INCUBATE / Warden clearance.
 
@@ -107,9 +110,7 @@ The script is one `<script>` block, organised in banner-commented sections (sear
 
 **Glyphs:** 7×7 pixel masks in `GLYPH`, rendered as URL-encoded SVG masks (`.ico`, coloured by `currentColor`). Redrawing one is editing seven strings.
 
-**Other UI:** in-world barks; duct markers (shown only when travel is in play); region map overlay (click the header site name, M, or a news bark); ☰ menu; debug panel (dither on/off, levels, Bayer 2/4/8 or none, strength, monochrome; **normal lighting** experiment; region-event logging; log filters); auto-restart checkbox on the death screen.
-
-**Normal lighting (experiment):** Off by default (`DBG.normals` in F9). Uses a JS port of [Sprite Fusion Sprite Normals](https://github.com/Hugo-Dz/spritefusion-sprite-normals) in `vendor/spritefusion-sprite-normals/` (MIT; same EDT silhouette + Oklab detail pipeline as the Rust/WASM tool). Bakes normals for the level canvas, actor sprites, and objects; a CPU N·L pass replaces the classic `lightCv` holes while normals are on. Fog-of-war and dither still apply. Needs HTTP (or equivalent) so `import()` can load the vendor module — `file://` will show a load error in the debug status line. Offline embedding of baked maps into the single HTML is deferred.
+**Other UI:** in-world barks; duct markers (shown only when travel is in play); region map overlay (click the header site name, M, or a news bark); ☰ menu; debug panel (dither on/off, levels, Bayer 2/4/8 or none, strength, monochrome; region-event logging; log filters); auto-restart checkbox on the death screen.
 
 ---
 
@@ -221,8 +222,9 @@ Cloud: [`Dockerfile`](Dockerfile) + [`fly.toml`](fly.toml) — persistent world 
 
 ## 9. Known issues and open tasks
 
-- **Normal lighting** is experimental (F9 → Normal maps). Level bake can hitch on site enter; CPU N·L is heavier than the classic veil. Replace the JS port with an upstream WASM build when a Rust toolchain is available if bit-identical output matters.
-- **Campaign save size:** many visited dungeons can approach `localStorage` quotas; if save fails, check the console warn. Consider pruning never-revisited duns later.
+- **Dither** defaults **on** (toggle with `D` / F9). Scene draws to an offscreen canvas; present uses a WebGL Bayer pass when available (CPU `getImageData` fallback).
+- **Pose / chunk animation:** only updates and draws on-camera bodies; NPCs are staggered (~8–20 Hz); segments use canvas strokes (not per-pixel `fillRect`). F9 can still disable pose entirely.
+- **Campaign save size:** many visited dungeons can approach `localStorage` quotas; if save fails, check the console warn. MP welcome uses `saveCampaignBlob({ slim: true })` (hot/current/recent duns only); solo `localStorage` still keeps full visited duns.
 - **People die-off** at mid-avail civ sites is softened (lower settler decay when `S` is 2–8); still worth watching Foundries over long runs.
 - **Hunter floor** in `regionStep` refills empty niches more aggressively on Bone/Lease sites; coverage still varies by region seed.
 - **Told tiles** reopen for explore after ~55% site dwell (sooner with `trustmap`/`walkblind`); still blocked briefly under fresh `newsHot`. Worth playtesting.
