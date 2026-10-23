@@ -2623,6 +2623,12 @@ function pathTo(a,tx,ty,lim){
   return false;
 }
 function pathToDuct(a,e,lim){return pathTo(a,e.i%MW,(e.i/MW)|0,lim==null?900:lim)}
+/** Closest reachable tile that reduces distance to (tx,ty) — for when full duct path is blocked mid-route. */
+function seekTileToward(a,tx,ty,lim){
+  const hx=a.x|0,hy=a.y|0,here=idx(hx,hy);let best=here,bd=Math.hypot(hx-tx,hy-ty);
+  bfs(hx,hy,i=>{const d=Math.hypot((i%MW)-tx,((i/MW)|0)-ty);if(d<bd-.05){bd=d;best=i}return false},lim==null?900:lim);
+  return best===here?null:best;
+}
 const nearExit=i=>exits.some(e=>Math.abs(e.i%MW-i%MW)<=1&&Math.abs(((e.i/MW)|0)-((i/MW)|0))<=1);
 // ---------------------------------------------------------------- extraction helpers
 function canExtract(a,i,isFloor,hows,want){
@@ -2891,62 +2897,62 @@ const VERB={
     if(a!==player)return NPCV.TRAVEL(a,p);
     const s=RG.sites[RG.cur];
     if(p.to==='safety'&&siteDanger(s)<.5)return null;
-    const idleLeave=(a.idleT||0)>5;
+    const idleLeave=(a.idleT||0)>3;
     // dwell only while there is still ground to cover; once explored, leave without waiting out the timer
-    // pathLim-aligned: unreachable "unexplored" must not keep Wayfarer from ducts
     const exploredOut=a.exT==null&&!bfs(a.x|0,a.y|0,i=>unexploredFor(a,i)&&!isBad(a,'t'+i),idleLeave?900:480);
     const needGo=!!(a.stationNeed&&a.stationNeed>gameTime)||!!stationHungry(a)||isIsolated(s)||(s.phase==='collapse'&&(a.siteT||0)>14);
     if(needGo&&stationHungry(a)&&!(a.stationNeed>gameTime))noteStationNeed('starving station');
     const dwell=siteDwell(s);
-    // idle unlock needs a short stay first — otherwise arrival (idleT left over) hops back through the duct
     const idleGo=(a.idleT||0)>6&&(a.siteT||0)>=12;
     if(p.to!=='safety'&&p.to!=='rival'&&(a.siteT||0)<(needGo?18:dwell)&&!exploredOut&&!(a.focus.all>patience(a))&&!needGo&&!idleGo)return null;
+    // idle: path-fail markBad on corridor tiles was blocking the only route the UI still advertised
+    if(idleLeave&&a.bad&&a.bad.size){a.bad.clear();a.exT=null}
     let known=knownDucts(a);
-    // idle / empty: use every unsealed exit — ducts sitting in fog never got explored[e.i], which left TRAVEL with nothing
+    // idle / empty: every unsealed exit (fog often hid explored[e.i])
     if(!known.length||idleLeave){
       const raw=exits.filter(e=>!(sealMap&&sealMap[e.i]));
-      if(raw.length){for(const e of raw){a.bad&&a.bad.delete('t'+e.i);if(idleLeave&&!explored[e.i])explored[e.i]=1}known=raw}
+      if(raw.length){for(const e of raw){if(idleLeave&&!explored[e.i])explored[e.i]=1}known=raw}
     }
-    // only ducts we can actually walk to
-    const ductLim=idleLeave?1200:900;
-    let reach=known.filter(e=>pathToDuct(a,e,ductLim));
-    if(!reach.length&&known.length){for(const e of known)a.bad&&a.bad.delete('t'+e.i);reach=known.filter(e=>pathToDuct(a,e,ductLim))}
-    known=reach;
-    // refuse return duct while there is still pathable ground — but if the pocket is exhausted (exploredOut)
-    // and the only duct is the return, leaving is the Mind's job
+    const ductLim=idleLeave?1400:900;
     const minBack=Math.max(28,Math.min(48,(dwell||40)*.75));
+    let cands=known;
     if((a.siteT||0)<minBack&&RG.prev!=null){
-      const onward=known.filter(e=>e.to!==RG.prev);
-      if(onward.length)known=onward;
+      const onward=cands.filter(e=>e.to!==RG.prev);
+      if(onward.length)cands=onward;
       else if(!exploredOut&&!needGo&&p.to!=='safety')return null;
-      // exhausted pocket, only return: brief sit — waived once Mind has been silent (idleLeave)
       else if(exploredOut&&(a.siteT||0)<14&&!needGo&&p.to!=='safety'&&!idleLeave)return null;
     }
-    if(!known.length)return null;
-    let best=null,bv=-1e9;
-    for(const e of known){let v=travelScore(RG.sites[e.to],p.to,s);if(v>-1e8&&a.travelTo===e.to)v+=.5;if(v>bv){bv=v;best=e}}
-    if(!best||bv<=-1e8){
+    if(!cands.length)return null;
+    // prefer fully pathable ducts; else walk toward the best duct (UI already showed the name)
+    let reach=cands.filter(e=>pathToDuct(a,e,ductLim));
+    let best=null,bv=-1e9,seekStep=null;
+    const scoreE=e=>{let v=travelScore(RG.sites[e.to],p.to,s);if(v>-1e8&&a.travelTo===e.to)v+=.5;return v};
+    const pool=reach.length?reach:cands;
+    for(const e of pool){const v=scoreE(e);if(v<=-1e8&&reach.length)continue;if(v>bv||(v===bv&&!best)){bv=v;best=e}}
+    if(!best||(bv<=-1e8&&!idleLeave)){
       if(p.to==='mark'||p.to==='safety'||p.to==='news'||p.to==='remains'||p.to==='power'||p.to==='crew'||p.to==='rite'||p.to==='rival')return null;
       if(p.to==='plenty'||p.to==='kin'){
         const restless=(a.focus.all||0)>patience(a)||a.energy<=a.maxEnergy*.3||needGo||idleGo||idleLeave;
         if(!restless&&(!exploredOut||(a.siteT||0)<minBack))return null;
       }
-      const onward=known.filter(e=>e.to!==RG.prev);
-      if(!onward.length&&!exploredOut&&!needGo&&p.to!=='safety'&&(a.siteT||0)<minBack&&!idleLeave)return null;
-      const pool=onward.length?onward:known;
-      bv=-1e9;for(const e of pool){const o=RG.sites[e.to];const v=(o.visited?0:2)+(o.tier-s.tier)*.2-(e.to===RG.prev?2.5:0)-(o.lastVisit!=null&&RG.tick-o.lastVisit<120?1.5:0)+(a.travelTo===e.to?.5:0);if(v>bv){bv=v;best=e}}
+      bv=-1e9;best=null;
+      for(const e of cands){const o=RG.sites[e.to];const v=(o.visited?0:2)+(o.tier-s.tier)*.2-(e.to===RG.prev?2.5:0)-(o.lastVisit!=null&&RG.tick-o.lastVisit<120?1.5:0)+(a.travelTo===e.to?.5:0);if(v>bv){bv=v;best=e}}
     }
-    // stay-put hysteresis only while the site still has unknown ground (Nomad reaches TRAVEL after EXPLORE is done)
     if((p.to==='plenty'||p.to==='kin')&&bv>-1e8&&!exploredOut&&!idleGo&&!idleLeave){const r=dietOf(a).res;const here=p.to==='plenty'?s.res[r]:(s.civ&&!s.civ.grudge&&!civAggressive(s.civ)?[...a.mind].filter(t=>s.civ.memes.has(t)).length+.2:-1);if(bv<=here+.15&&!(a.focus.all>patience(a)))return null}
-    // hard stop return duct only while ground remains pathable
     if(best&&RG.prev!=null&&best.to===RG.prev&&(a.siteT||0)<minBack&&!exploredOut&&p.to!=='safety'&&!needGo&&!idleLeave)return null;
     if(!best)return null;
+    const canBoard=pathToDuct(a,best,ductLim);
+    if(!canBoard){
+      seekStep=seekTileToward(a,best.i%MW,(best.i/MW)|0,ductLim);
+      if(seekStep==null)return null;
+    }
     a.travelTo=best.to;
     // #region agent log
-    if(!(a._dbgTravelAt>gameTime-.8)){a._dbgTravelAt=gameTime;_dbgLog('G','TRAVEL:go','travel intent',{to:best.to,name:RG.sites[best.to].name,pol:p.to,siteT:a.siteT,exploredOut,focus:a.focus&&a.focus.all,pat:patience(a),bv,ducts:known.length,idleT:a.idleT||0})}
+    if(!(a._dbgTravelAt>gameTime-.8)){a._dbgTravelAt=gameTime;_dbgLog('G','TRAVEL:go','travel intent',{to:best.to,name:RG.sites[best.to].name,pol:p.to,siteT:a.siteT,exploredOut,focus:a.focus&&a.focus.all,pat:patience(a),bv,ducts:cands.length,reach:reach.length,seek:seekStep,idleT:a.idleT||0})}
     // #endregion
-    // range ≥1 so a duct buried under a machine footprint still triggers from the neighbouring tile
-    return{tile:best.i,range:1.15,act:'travel',to:best.to,lab:RG.sites[best.to].name,v:'TRAVEL'};
+    if(canBoard)return{tile:best.i,range:1.15,act:'travel',to:best.to,lab:RG.sites[best.to].name,v:'TRAVEL'};
+    // step toward the duct the Mind already named — do not stand silent while the label points off-screen
+    return{tile:seekStep,range:.5,to:best.to,lab:'toward '+RG.sites[best.to].name,v:'TRAVEL'};
   },
   THROW(a){
     const ammo=Object.keys(a.inv).filter(m=>a.inv[m]>0&&(MP(m,'sharp')>=2||MP(m,'hard')>=3)).sort((p,q)=>MP(q,'sharp')-MP(p,'sharp'))[0];
@@ -7353,40 +7359,17 @@ const ARROWS=['→','↘','↓','↙','←','↖','↑','↗'];
 const dirArrow=(dx,dy)=>ARROWS[((Math.round(Math.atan2(dy,dx)/(Math.PI/4))%8)+8)%8];
 let regFilter='civ',regSel=null,mapOpen=false;
 function routePreview(){
-  const a=player,s=RG.sites[RG.cur],out=[];
-  const exploredOut=a.exT==null&&!bfs(a.x|0,a.y|0,i=>unexploredFor(a,i)&&!isBad(a,'t'+i),480);
-  for(const tid of a.mind)for(const v of TH[tid].v){if(v[0]!=='TRAVEL')continue;const p=v[1]||{};
-    // match TRAVEL: ignore briefly-bad ducts so the Mind row agrees with what would actually run
-    let known=knownDucts(a);if(!known.length)known=exits.filter(e=>explored[e.i]&&!(sealMap&&sealMap[e.i]));
-    if(!known.length){out.push({tid,to:null});continue}
-    if(p.to==='safety'&&siteDanger(s)<.5){out.push({tid,to:null});continue}
-    const needGo=!!(a.stationNeed&&a.stationNeed>gameTime)||!!stationHungry(a)||isIsolated(s)||(s.phase==='collapse'&&(a.siteT||0)>14);
-    const dwell=siteDwell(s);
-    const idleGo=(a.idleT||0)>6&&(a.siteT||0)>=12;
-    if(p.to!=='safety'&&p.to!=='rival'&&(a.siteT||0)<(needGo?18:dwell)&&!exploredOut&&!(a.focus.all>patience(a))&&!needGo&&!idleGo){out.push({tid,to:null});continue}
-    const minBack=Math.max(28,Math.min(48,(dwell||40)*.75));
-    if((a.siteT||0)<minBack&&RG.prev!=null){
-      const onward=known.filter(e=>e.to!==RG.prev);
-      if(onward.length)known=onward;
-      else if(!exploredOut&&!needGo&&p.to!=='safety'){out.push({tid,to:null});continue}
-      else if(exploredOut&&(a.siteT||0)<14&&!needGo&&p.to!=='safety'){out.push({tid,to:null});continue}
-    }
-    if(!known.length){out.push({tid,to:null});continue}
-    if(p.when&&condWhy(a,p.when)){out.push({tid,to:null});continue}
-    let best=null,bv=-1e9;for(const e of known){const sc=travelScore(RG.sites[e.to],p.to,s);if(sc>bv){bv=sc;best=e}}
-    if(bv<=-1e8){
-      if(p.to==='mark'||p.to==='safety'||p.to==='news'||p.to==='remains'||p.to==='power'||p.to==='crew'||p.to==='rite'){out.push({tid,to:null});continue}
-      if(p.to==='plenty'||p.to==='kin'){
-        const restless=(a.focus.all||0)>patience(a)||a.energy<=a.maxEnergy*.3||needGo||idleGo;
-        if(!restless&&(!exploredOut||(a.siteT||0)<minBack)){out.push({tid,to:null});continue}
-      }
-      const onward=known.filter(e=>e.to!==RG.prev);
-      if(!onward.length&&!exploredOut&&!needGo&&p.to!=='safety'&&(a.siteT||0)<minBack){out.push({tid,to:null});continue}
-      const pool=onward.length?onward:known;
-      bv=-1e9;for(const e of pool){const o=RG.sites[e.to];const sc=(o.visited?0:2)+(o.tier-s.tier)*.2-(e.to===RG.prev?2.5:0);if(sc>bv){bv=sc;best=e}}}
-    else if((p.to==='plenty'||p.to==='kin')&&!exploredOut&&!idleGo){const r=dietOf(a).res;const here=p.to==='plenty'?s.res[r]:(s.civ&&!s.civ.grudge&&!civAggressive(s.civ)?[...a.mind].filter(t=>s.civ.memes.has(t)).length+.2:-1);if(bv<=here+.15&&!(a.focus.all>patience(a))){out.push({tid,to:null});continue}}
-    if(best&&RG.prev!=null&&best.to===RG.prev&&(a.siteT||0)<minBack&&!exploredOut&&p.to!=='safety'&&!needGo){out.push({tid,to:null});continue}
-    out.push({tid,to:best?best.to:null})}
+  // must match VERB.TRAVEL — a lying Wayfarer label was the corridor softlock symptom
+  const a=player,out=[];if(!a||!RG)return out;
+  const snap={travelTo:a.travelTo,exT:a.exT,bad:a.bad?new Map(a.bad):new Map(),idleT:a.idleT};
+  for(const tid of a.mind)for(const v of TH[tid].v){
+    if(v[0]!=='TRAVEL')continue;
+    if(v[1]&&v[1].when&&condWhy(a,v[1].when)){out.push({tid,to:null});continue}
+    a.bad=new Map(snap.bad);a.travelTo=snap.travelTo;a.exT=snap.exT;a.idleT=snap.idleT;
+    const r=VERB.TRAVEL(a,v[1]||{});
+    out.push({tid,to:r&&r.to!=null?r.to:null});
+  }
+  a.travelTo=snap.travelTo;a.exT=snap.exT;a.bad=snap.bad;a.idleT=snap.idleT;
   return out;
 }
 // duct markers: shown in the world only when travel is in play
