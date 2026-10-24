@@ -192,6 +192,8 @@ globalThis.__MV_G=(function(){
   Object.defineProperty(g,'MW',{enumerable:true,get(){return MW}});
   Object.defineProperty(g,'MH',{enumerable:true,get(){return MH}});
   Object.defineProperty(g,'explored',{enumerable:true,get(){return explored}});
+  Object.defineProperty(g,'exits',{enumerable:true,get(){return exits},set(v){exits=v}});
+  Object.defineProperty(g,'pendingTravel',{enumerable:true,get(){return pendingTravel},set(v){pendingTravel=v}});
   Object.defineProperty(g,'VERB',{enumerable:true,get(){return VERB}});
   if(typeof saveCampaignBlob!=='function'){
     g.saveCampaignBlob=function(){

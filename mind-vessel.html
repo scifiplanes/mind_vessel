@@ -326,12 +326,12 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
     <button id="b-pause" aria-label="Pause or resume">▌▌</button><button id="b-speed" aria-label="Change speed">x1</button><button id="b-menu" aria-label="Menu" aria-expanded="false">☰</button></div>
   <div id="stage">
     <div class="viewwrap" id="vw">
-      <canvas id="cv" width="320" height="192" aria-label="The world. Click anything to inspect it."></canvas><div id="tag"></div>
+      <canvas id="cv" width="1280" height="768" aria-label="The world. Click anything to inspect it."></canvas><div id="tag"></div>
       <div id="ducts" aria-label="Known ducts out of this site"></div>
       <div id="toasts" aria-live="polite"></div>
       <div id="card" class="ov" hidden role="dialog" aria-label="Inspector. Click it to close." title="Click to close"></div>
       <div id="drawer" class="ov" aria-label="Thought Memory"><div class="dh"><b>Memory</b><span class="dim" id="drawer-sub"></span><span style="flex:1"></span><button id="drawer-x" aria-label="Close Memory">✕</button></div><div id="lib-pane" style="display:flex;flex-direction:column;min-height:0;flex:1"><div id="libbar"></div><div class="scroll" id="lib"></div><div id="libinfo">Drag a card onto the Mind, or press +. ★ would act here right now.</div></div></div>
-      <div id="mapov" hidden><div class="mh" id="maphead"></div><canvas id="reg" width="320" height="156" aria-label="Region map"></canvas><div id="regcard" class="ov" hidden></div></div>
+      <div id="mapov" hidden><div class="mh" id="maphead"></div><canvas id="reg" width="1280" height="624" aria-label="Region map"></canvas><div id="regcard" class="ov" hidden></div></div>
     </div>
     <section id="dock" aria-label="Mind">
       <button id="handle" aria-label="Resize the sheet"></button>
@@ -360,6 +360,8 @@ const _hexCache=new Map(),_shadeCache=new Map();
 const hex=c=>{let v=_hexCache.get(c);if(v)return v;const n=parseInt(c.slice(1),16);v=[(n>>16)&255,(n>>8)&255,n&255];_hexCache.set(c,v);return v};
 const shade=(c,k)=>{const key=c+'@'+k;let v=_shadeCache.get(key);if(v)return v;const[r,g,b]=hex(c);v=`rgb(${Math.min(255,r*k|0)},${Math.min(255,g*k|0)},${Math.min(255,b*k|0)})`;if(_shadeCache.size>800)_shadeCache.clear();_shadeCache.set(key,v);return v};
 function hash(x,y,s){let h=(Math.imul(x|0,374761393)+Math.imul(y|0,668265263)+Math.imul(s|0,1442695041))|0;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+// Native asset scale: logical world stays TS/VW/VH; bitmaps/glyphs/map are RES× denser.
+const RES=4, SS=10*RES, GS=7*RES, REG_W=320*RES, REG_H=156*RES;
 const fmtT=t=>{t=Math.floor(t);return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')};
 const pad2=n=>String(n).padStart(2,'0');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -522,16 +524,19 @@ const SITE_REG={
   Quench:{bone:.15,plate:.75,lease:.1},Stampyard:{bone:.1,plate:.82,lease:.08},Gasket:{bone:.12,plate:.78,lease:.1},
   Busgate:{bone:.02,plate:.25,lease:.73},
 };
-// Civilized pockets vs wilderness: only HOLD_CAPABLE types may become holds (~1 in 4); the rest stay wild.
+// Soft settlement affinity by type (bias, not a hold flag). Hold itself is emergent: civ or enough settlers.
 const HOLD_CAPABLE=new Set(['Hab','Parish','Hearth','Smokehall','Hideyard','Foundry','Meterward','Rivetyard','Coldstore','Leaselobby','Badgehall','Exchange','Spine','Vault','Atrium','Busgate','Gallery','Cleancorridor','Stacks','Pumphouse','Ashcamp']);
 const APERTURE_BIOMES=new Set(['Shaft','Pit','Crypt','Dig','Furnace','Atrium','Kiln','Stacks','Vault','Ossuary','Foundry','Spine']);
-function siteIsHold(s){return!!(s&&s.hold)}
-function ensureSiteHold(s){
-  if(!s)return false;
-  if(s.hold!=null)return!!(s.hold=!!s.hold);
-  s.hold=!!(s.civ||(HOLD_CAPABLE.has(s.type)&&((s.seed||0)%5===0)));
-  return s.hold;
+const HOLD_S=4; // settlers at/above this read as a hold even without a civ
+function siteIsHold(s){return!!(s&&(s.civ||(s.S||0)>=HOLD_S))}
+function settleAff(s){return HOLD_CAPABLE.has(s&&s.type)?1:.42}
+function siteOcc(s){
+  if(!s)return 1;
+  let o=.38+Math.min(.55,(s.S||0)*.08)+(s.civ?.25:0)+Math.min(.2,(s.arts||0)*.05)+Math.min(.15,(s.A||0)*.02);
+  if(s.phase==='complex')o+=.12;else if(s.phase==='colonial')o+=.08;else if(s.phase==='collapse')o-=.15;else if(s.phase==='primordial')o-=.05;
+  return clamp(o,.28,1.15);
 }
+function ensureSiteHold(s){if(!s)return false;s.hold=siteIsHold(s);return s.hold}
 function siteReg(s){const t=s&&(s.type||s);const w=SITE_REG[t]||{bone:.34,plate:.33,lease:.33};if(s&&typeof s==='object')s.reg=s.reg||{...w};return s&&s.reg?s.reg:w}
 function primaryReg(s){const w=siteReg(s);return REG_K.reduce((a,k)=>w[k]>(w[a]||0)?k:a,'bone')}
 function pickByReg(s,table){const w=siteReg(s),bag=[];for(const k of REG_K)for(let i=0;i<Math.max(1,Math.round((w[k]||0)*8));i++)bag.push(...(table[k]||[]));return bag.length?bag:Object.values(table).flat()}
@@ -1800,20 +1805,48 @@ yardmass:[".c..c..c..","cacacacac.","aaaaaaaaaa","baaaaaaaab","baaeeaaaab","baaa
 slagheap:["....c.....","..cceecc..",".caaaaaac.","caaaaaaaac","caaaeeaaac","baaaaaaaab","bbbbbbbbbb","bb.bb.bb.b","..........",".........."],
 busmass:["..cccccc..",".ceeeeeec.",".caaaaaac.","caaaaaaaac","caaaeeaaac","aaaaaaaaaa","bb.aa.aa.b","bbbbbbbbbb","..........",".........."],
 };
+function sprModePal(pal,mode){
+  if(mode==='w')return pal.map(()=>'#f2eee2');
+  if(mode==='h')return pal.map((c,k)=>k===3?'#c8402c':shade(c,.8));
+  if(mode==='n')return pal.map((c,k)=>k===3?c:shade(c,.9));
+  return pal.slice();
+}
 function buildSprite(mask,pal,mode){
-  const c=document.createElement('canvas');c.width=10;c.height=10;const g=c.getContext('2d');
-  for(let y=0;y<mask.length;y++)for(let x=0;x<mask[y].length;x++){
-    const k='abce'.indexOf(mask[y][x]);if(k<0)continue;
-    let col=pal[k];
-    if(mode==='w')col='#f2eee2';else if(mode==='h')col=k===3?'#c8402c':shade(col,.8);else if(mode==='n'&&k!==3)col=shade(col,.9);
-    g.fillStyle=col;g.fillRect(x,y,1,1);
+  // Smooth silhouette reauthor (NOT block-upres): bilinear coverage over the 10×10 mask
+  // into SS×SS with edge falloff + interior contour. Pose-baked sprites prefer bakePoseSprite.
+  const c=document.createElement('canvas');c.width=SS;c.height=SS;const g=c.getContext('2d');
+  const H=mask.length,W=mask[0].length,img=g.createImageData(SS,SS),d=img.data;
+  const palM=sprModePal(pal,mode);
+  const cell=(x,y)=>{if(y<0||y>=H||x<0||x>=W)return-1;return'abce'.indexOf(mask[y][x])};
+  const rgbOf=c=>{if(!c)return[0,0,0];if(c[0]==='#')return hex(c);const m=String(c).match(/\d+/g);return m?[+m[0],+m[1],+m[2]]:[0,0,0]};
+  for(let py=0;py<SS;py++)for(let px=0;px<SS;px++){
+    const u=(px+.5)/RES-.5,v=(py+.5)/RES-.5;
+    const x0=Math.floor(u),y0=Math.floor(v),tx=u-x0,ty=v-y0;
+    let cov=0,cr=0,cg=0,cb=0,cw=0;
+    for(let j=0;j<2;j++)for(let i=0;i<2;i++){
+      const k=cell(x0+i,y0+j);if(k<0)continue;
+      const w=(i?tx:1-tx)*(j?ty:1-ty);if(w<=0)continue;
+      const[r,g2,b]=rgbOf(palM[k]);cr+=r*w;cg+=g2*w;cb+=b*w;cw+=w;cov+=w;
+    }
+    if(cov<.42)continue;
+    // edge: thinner AA rim; interior: slight contour from coverage + hash grain
+    let m=.78+.32*Math.min(1,(cov-.42)/.58);
+    if(cov<.7)m*=.72+.4*cov;
+    const n=hash(px,py,9);if(n>.94)m*=.9;else if(n<.06)m*=1.08;
+    // eye cells punch brighter near centers of e-cells
+    const ek=cell(Math.round(u),Math.round(v));if(ek===3&&cov>.7)m*=1.2;
+    const o=(py*SS+px)*4;
+    d[o]=(Math.min(255,cr/cw*m)|0);d[o+1]=(Math.min(255,cg/cw*m)|0);d[o+2]=(Math.min(255,cb/cw*m)|0);d[o+3]=255;
   }
-  return c;
+  g.putImageData(img,0,0);return c;
 }
 const sprCache={};
 function spriteOf(a,white,forced){
   const sp=a.comp.species,mode=white?'w':forced||(a.faction==='player'?'p':(player&&!wants(a,player)?'n':'h')),key=sp+mode;
-  if(!sprCache[key])sprCache[key]=buildSprite(SPR[sp.toLowerCase()],SPECIES[sp].pal,mode);
+  if(!sprCache[key]){
+    let s=null;try{if(typeof bakePoseSprite==='function')s=bakePoseSprite(sp,mode)}catch(e){}
+    sprCache[key]=s||buildSprite(SPR[sp.toLowerCase()],SPECIES[sp].pal,mode);
+  }
   return sprCache[key];
 }
 function nodeSprite(o){
@@ -1826,6 +1859,7 @@ function rgb2hex(s){const m=s.match(/\d+/g).map(Number);return'#'+m.map(v=>v.toS
 
 // ================================================================ world state
 const TS=12, VW=320, VH=192, MW=56, MH=40;
+const SRW=VW*RES, SRH=VH*RES;
 const DX=[1,-1,0,0], DY=[0,0,1,-1];
 let blk=null,map,decor,explored,vis,lvlCanvas,lights=[],rooms=[],shaftI=0,startRoom,depth=1,lvlSeed=1;
 let actors=[],objs=[],parts=[],floats=[],rings=[],player=null,nextId=1;
@@ -1949,11 +1983,60 @@ const blockId=i=>blk&&blk[i]?BIDS[blk[i]-1]:null;
 function tileYield(i,isFloor){if(isFloor)return floorAt(i).mats||[];const d=blockAt(i);if(!d)return[];if(blockId(i)==='built')return[[bmat.get(i)||'concrete',2]];return d.mats||[]}
 function weighted(w){const ks=Object.keys(w),tot=ks.reduce((a,k)=>a+w[k],0);return v=>{let r=v*tot;for(const k of ks){r-=w[k];if(r<=0)return k}return ks[ks.length-1]}}
 function recountApertures(){shaftI=0;if(!map||!flr)return;for(let i=0;i<MW*MH;i++)if(map[i]&&FLOOR[FIDS[flr[i]]]&&FLOOR[FIDS[flr[i]]].aperture)shaftI++}
+// every neighbour must get a distinct duct tile — empty nb / shared room centers softlocked TRAVEL
+function ensureExits(site,nbIds){
+  if(!site||!map)return;
+  // orphan sites (no region edges): stitch to nearest so the level is never a closed pocket
+  if(RG&&(!site.nb||!site.nb.length)){
+    let best=null,bd=1e9;
+    for(const o of RG.sites){if(o.id===site.id)continue;const d=Math.hypot(o.x-site.x,o.y-site.y);if(d<bd){bd=d;best=o}}
+    if(best){site.nb=[best.id];if(!best.nb.includes(site.id))best.nb.push(site.id)}
+  }
+  const want=((nbIds!=null?nbIds:site.nb)||[]).filter(id=>!RG||(RG.sites[id]&&id!==site.id));
+  const sorted=want.slice().sort((p,q)=>{if(!RG)return p-q;return RG.sites[p].x-RG.sites[q].x||RG.sites[p].y-RG.sites[q].y});
+  const spawn0=startRoom?idx(startRoom.cx,startRoom.cy):(player?idx(player.x|0,player.y|0):null);
+  const reach0=new Set();
+  if(spawn0!=null&&map[spawn0])bfs(spawn0%MW,(spawn0/MW)|0,i=>{reach0.add(i);return false},MW*MH);
+  const ok=exits&&exits.length===sorted.length
+    &&sorted.every(to=>exits.some(e=>e.to===to&&map[e.i]===2))
+    &&new Set(exits.map(e=>e.i)).size===exits.length
+    &&(!reach0.size||exits.every(e=>{
+      if(reach0.has(e.i))return true;
+      const x=e.i%MW,y=(e.i/MW)|0;
+      return [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>reach0.has(idx(x+dx,y+dy)));
+    }));
+  if(ok)return;
+  if(exits)for(const e of exits)if(map[e.i]===2)map[e.i]=1;
+  exits=[];
+  const used=new Set(),pool=[];
+  if(rooms&&rooms.length){
+    const skip=startRoom||rooms[0];
+    for(const r of rooms)if(r!==skip)pool.push(idx(r.cx,r.cy));
+    for(const r of rooms)for(let yy=r.y;yy<r.y+r.h;yy++)for(let xx=r.x;xx<r.x+r.w;xx++){const j=idx(xx,yy);if(map[j])pool.push(j)}
+  }
+  for(let i=0;i<MW*MH;i++)if(map[i])pool.push(i);
+  // ducts must sit on the walkable component from spawn — sealed decks / fog islands softlocked TRAVEL
+  const spawn=startRoom?idx(startRoom.cx,startRoom.cy):(player?idx(player.x|0,player.y|0):null);
+  const reach=new Set();
+  if(spawn!=null&&map[spawn])bfs(spawn%MW,(spawn/MW)|0,i=>{reach.add(i);return false},MW*MH);
+  const fromPool=list=>{
+    for(const j of list){if(!used.has(j)&&map[j]&&map[j]!==2&&(!reach.size||reach.has(j)))return j}
+    for(const j of list){if(!used.has(j)&&map[j]&&(!reach.size||reach.has(j)))return j}
+    return null;
+  };
+  for(const to of sorted){
+    let i=fromPool(pool);
+    if(i==null&&reach.size){reach.clear();i=fromPool(pool)} // last resort: ignore component
+    if(i==null)break;
+    used.add(i);map[i]=2;if(flr)flr[i]=FI.concrete;if(blk)blk[i]=0;if(bmat)bmat.delete(i);
+    exits.push({i,to});
+  }
+}
 // intentional chasm bay + solid bridge across a corridor run (parallax depth, path stays intact)
 function placeChasmsAndBridges(site){
-  const deep=APERTURE_BIOMES.has(site.type),hold=siteIsHold(site),prim=primaryReg(site);
+  const deep=APERTURE_BIOMES.has(site.type),prim=primaryReg(site);
   const bridgeFl=prim==='bone'?FI.grit:FI.concrete;
-  let want=hold?(R()<.22?1:0):(deep?RI(1,2):(R()<.45?1:0));
+  let want=deep?RI(1,2):(prim==='plate'&&R()<.4?1:(R()<.45?1:0));
   const corr=[];for(let i=0;i<MW*MH;i++)if(map[i]===3)corr.push(i);
   const used=new Set();
   const tryBridge=()=>{
@@ -2002,8 +2085,8 @@ function placeChasmsAndBridges(site){
 }
 // solid floor islands in the wall mass — visible through glass, unreachable without mining
 function placeSealedDecks(site){
-  const hold=siteIsHold(site);
-  const n=hold?RI(1,2):RI(1,3);
+  const prim=primaryReg(site);
+  const n=prim==='lease'?RI(1,3):prim==='plate'?RI(1,2):RI(1,3);
   const isWalk=j=>j>=0&&j<MW*MH&&map[j]>0;
   for(let k=0;k<n;k++){
     let placed=false;
@@ -2043,19 +2126,26 @@ function placeSealedDecks(site){
   }
 }
 function genLevel(nbIds,site){
-  const T=SITE_T[site.type],wild=!siteIsHold(site);
+  const T=SITE_T[site.type],prim=primaryReg(site);
   lvlSeed=RI(1,1e6);
   map=new Uint8Array(MW*MH);blk=new Uint8Array(MW*MH);flr=new Uint8Array(MW*MH);stock=new Float32Array(MW*MH).fill(1);bmat=new Map();slick=new Uint8Array(MW*MH);
   explored=new Uint8Array(MW*MH);vis=new Uint8Array(MW*MH);
   rooms=[];
-  const roomCap=wild?7:13,roomTries=wild?240:400;
+  // place grammar by register — not hold/wild
+  const roomCap=prim==='bone'?8:prim==='lease'?11:10,roomTries=prim==='bone'?280:360;
+  const wLo=prim==='lease'?3:prim==='bone'?3:4,wHi=prim==='plate'?10:prim==='bone'?8:9;
+  const hLo=prim==='lease'?3:3,hHi=prim==='plate'?8:prim==='bone'?7:7;
   for(let t=0;t<roomTries&&rooms.length<roomCap;t++){
-    const w=RI(wild?3:4,wild?8:10),h=RI(wild?3:4,wild?7:8),x=RI(2,MW-w-3),y=RI(2,MH-h-3);
+    let w=RI(wLo,wHi),h=RI(hLo,hHi);
+    if(prim==='lease'&&R()<.35){w=RI(3,5);h=RI(5,9)} // spine / clean corridor chambers
+    if(prim==='plate'&&R()<.3){w=RI(7,10);h=RI(5,7)} // work bays
+    if(prim==='bone'&&R()<.35){w=RI(3,6);h=RI(3,6)} // dug pockets
+    const x=RI(2,MW-w-3),y=RI(2,MH-h-3);
     if(rooms.some(r=>x<r.x+r.w+2&&x+w+2>r.x&&y<r.y+r.h+2&&y+h+2>r.y))continue;
     rooms.push({x,y,w,h,cx:x+(w>>1),cy:y+(h>>1)});
   }
   if(!rooms.length){const w=6,h=5,x=RI(4,MW-w-5),y=RI(4,MH-h-5);rooms.push({x,y,w,h,cx:x+(w>>1),cy:y+(h>>1)})}
-  // guarantee one chamber big enough for sleeping masses / digesters even in wilderness
+  // guarantee one chamber big enough for sleeping masses / digesters
   if(!rooms.some(r=>r.w>=7&&r.h>=6)){
     for(let t=0;t<220;t++){
       const w=RI(7,10),h=RI(6,8),x=RI(2,MW-w-3),y=RI(2,MH-h-3);
@@ -2065,18 +2155,18 @@ function genLevel(nbIds,site){
   }
   for(const r of rooms)for(let yy=r.y;yy<r.y+r.h;yy++)for(let xx=r.x;xx<r.x+r.w;xx++)map[idx(xx,yy)]=1;
   rooms.sort((a,b)=>a.cx-b.cx);
-  const carve=(a,b)=>{let x=a.cx,y=a.cy;const wide=R()<(wild?.12:.25);
+  const wideP=prim==='plate'?.35:prim==='lease'?.2:.12,extraLinks=prim==='lease'?3:prim==='plate'?2:1;
+  const carve=(a,b)=>{let x=a.cx,y=a.cy;const wide=R()<wideP;
     const mark=(xx,yy)=>{if(xx>1&&yy>1&&xx<MW-2&&yy<MH-2&&!map[idx(xx,yy)])map[idx(xx,yy)]=3};
     const hz=()=>{while(x!==b.cx){mark(x,y);if(wide)mark(x,y+1);x+=Math.sign(b.cx-x)}};
     const vt=()=>{while(y!==b.cy){mark(x,y);if(wide)mark(x+1,y);y+=Math.sign(b.cy-y)}};
     if(R()<.5){hz();vt()}else{vt();hz()}mark(x,y)};
   for(let i=1;i<rooms.length;i++)carve(rooms[i-1],rooms[i]);
-  for(let i=0;i<(wild?1:3);i++)carve(PICK(rooms),PICK(rooms));
+  for(let i=0;i<extraLinks;i++)carve(PICK(rooms),PICK(rooms));
   startRoom=rooms[RI(0,rooms.length-1)];
   exits=[];
-  const nbs=(nbIds||[]).slice().sort((p,q)=>RG.sites[p].x-RG.sites[q].x||RG.sites[p].y-RG.sites[q].y);
-  const rs=rooms.filter(r=>r!==startRoom).sort((p,q)=>p.cx-q.cx),usedR=new Set();
-  nbs.forEach((to,k)=>{let ri=Math.round(k*(Math.max(0,rs.length-1))/Math.max(1,nbs.length-1));while(usedR.has(ri)&&usedR.size<rs.length)ri=(ri+1)%rs.length;usedR.add(ri);const r=rs[ri]||startRoom,i=idx(r.cx,r.cy);map[i]=2;exits.push({i,to})});
+  // place one duct per neighbour on a unique floor tile (old forEach collapsed many nbs onto one room)
+  ensureExits(site,nbIds);
   // walls: the site's nature decides what they are made of, in veins and patches
   const wp=weighted(T.w),fp=weighted(T.f);
   const nearFloor=(x,y,r)=>{for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const X=x+dx,Y=y+dy;if(X>=0&&Y>=0&&X<MW&&Y<MH&&map[idx(X,Y)])return true}return false};
@@ -2088,18 +2178,18 @@ function genLevel(nbIds,site){
   // floors: each room has its own surface, with patches
   for(const r of rooms){const base=fp(hash(r.cx,r.cy,lvlSeed+11)),alt=fp(hash(r.cy,r.cx,lvlSeed+13));
     for(let yy=r.y;yy<r.y+r.h;yy++)for(let xx=r.x;xx<r.x+r.w;xx++){const i=idx(xx,yy);flr[i]=FI[hash(xx>>1,yy>>1,lvlSeed+17)<.3?alt:base]}}
-  // corridors: solid floor by default; apertures come from chasm/bridge set pieces only
+  // corridors: pull from site floor weights (no hold/wild fork); apertures from chasm/bridge set pieces
   for(let i=0;i<MW*MH;i++)if(map[i]===3){
-    const h=hash(i,1,lvlSeed);
-    flr[i]=FI[wild?(h<.80?'grit':h<.95?'concrete':'grate'):(h<.70?'concrete':h<.95?'grit':'grate')];
+    const k=fp(hash(i,1,lvlSeed));
+    flr[i]=FI[k==='shaft'?(prim==='bone'?'grit':'concrete'):k]; // shafts stay set-piece only
   }
   for(const e of exits)flr[e.i]=FI.concrete;
   placeChasmsAndBridges(site);
   placeSealedDecks(site);
   recountApertures();
-  // hanging lamps where the site still has light
+  // hanging lamps from site light + emergent occupation
   lights=[];
-  const lampChance=site.base.light*(wild?.32:.8);
+  const lampChance=site.base.light*(.35+.45*siteOcc(site));
   for(const r of rooms){if(R()<lampChance&&map[idx(r.cx,r.y-1)]===0)lights.push({x:r.cx,y:r.y,col:PICK(['#e08a30','#4fc0c0','#c8c070','#e08a30']),r:RI(3,5),ph:R()*6,fl:R()<.3})}
   populate(site);
   renderLevel();
@@ -2117,7 +2207,7 @@ function populate(site){
   objs=[];
   const relKeys=Object.keys(REL);
   const prim=site?primaryReg(site):'plate';
-  const sparse=(site&&!siteIsHold(site))?.42:1;
+  const sparse=siteOcc(site);
   const nodes=NODE_T.filter(n=>n.reg===prim).concat(NODE_T.filter(n=>n.reg!==prim));
   const macs=MACHINES.filter(m=>m.reg===prim).concat(MACHINES.filter(m=>m.reg!==prim));
   for(const r of rooms){
@@ -2136,7 +2226,7 @@ function populate(site){
   if(site&&R()<sparse+.2&&(site.type==='Parish'||site.type==='Midden'||site.type==='Smokehall'||site.type==='Boneyard'||site.type==='Hideyard'||site.type==='Ashcamp'||site.type==='Pit'||site.type==='Crypt'||prim==='bone'&&R()<.4)){const pool=rooms.filter(r=>r!==startRoom);const place=et=>placeHugeEnc(PICK(pool.length?pool:rooms),et,{rel:PICK(relKeys),reg:prim,used:false});if(site.type==='Parish'&&!objs.some(o=>o.et==='terminal'))place('terminal');place('shrine');if(sparse>.5||R()<.5)place('altar');if(R()<.6*sparse)place('cache')}
   if(site&&R()<sparse+.15&&(prim==='plate'||['Foundry','Kiln','Furnace','Rivetyard','Pumphouse','Meterward','Shaft'].includes(site.type))){const pool=rooms.filter(r=>r!==startRoom);const place=et=>placeHugeEnc(PICK(pool.length?pool:rooms),et,{rel:PICK(relKeys),reg:prim,used:false});place('terminal');if(R()<.7*sparse)place('cache');if(R()<.5*sparse)place('feed')}
   if(site&&R()<sparse+.2&&(['Coolant','Coldstore','Cleancorridor'].includes(site.type))){const pool=rooms.filter(r=>r!==startRoom);const place=et=>placeHugeEnc(PICK(pool.length?pool:rooms),et,{rel:PICK(relKeys),reg:prim,used:false});place(R()<.5?'terminal':'cache');if(prim==='lease'&&R()<.5)place('feed')}
-  if(site&&(siteIsHold(site)||R()<.35)&&(prim==='lease'||['Spine','Vat','Exchange','Splice','Leaselobby','Badgehall'].includes(site.type))){const line=site.type==='Spine'||site.type==='Leaselobby'||site.type==='Badgehall'?'boot':site.type==='Vat'?'marrow':R()<.12?'twin':R()<.5?'boot':'marrow';const thought=line==='twin'?'heresy':PICK((line==='boot'?BOOT_SEED:MARROW_SEED).filter(t=>TH[t]&&!TH[t].b));placeHugeEnc(PICK(rooms.filter(r=>r!==startRoom).concat([startRoom])),'relic',{line,thought,used:false,name:line==='twin'?'Twin Relic':line==='boot'?'Boot Relic':'Marrow Relic'})}
+  if(site&&(prim==='lease'||['Spine','Vat','Exchange','Splice','Leaselobby','Badgehall'].includes(site.type))&&R()<.35+.4*siteOcc(site)){const line=site.type==='Spine'||site.type==='Leaselobby'||site.type==='Badgehall'?'boot':site.type==='Vat'?'marrow':R()<.12?'twin':R()<.5?'boot':'marrow';const thought=line==='twin'?'heresy':PICK((line==='boot'?BOOT_SEED:MARROW_SEED).filter(t=>TH[t]&&!TH[t].b));placeHugeEnc(PICK(rooms.filter(r=>r!==startRoom).concat([startRoom])),'relic',{line,thought,used:false,name:line==='twin'?'Twin Relic':line==='boot'?'Boot Relic':'Marrow Relic'})}
   for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++){
     if(map[idx(x,y)]!==3)continue;
     const horiz=!walkTile(x,y-1)&&!walkTile(x,y+1)&&(map[idx(x-1,y)]===1||map[idx(x+1,y)]===1);
@@ -2324,6 +2414,7 @@ function setBlock(i,id,mat){
 
 // ---------------------------------------------------------------- tile painting
 function paintTile(d,W,ox,oy,tx,ty){
+  // Env tiles stay at native 1× (TS) — denser TSP reauthor looked worse than the original pixel floors.
   const i=idx(tx,ty),open=map[i];
   for(let py=0;py<TS;py++)for(let px=0;px<TS;px++){
     const n=hash(tx*TS+px,ty*TS+py,lvlSeed);let c,a=255;
@@ -2623,6 +2714,97 @@ function pathTo(a,tx,ty,lim){
   return false;
 }
 function pathToDuct(a,e,lim){return pathTo(a,e.i%MW,(e.i/MW)|0,lim==null?900:lim)}
+function edgeKey(a,b){return a<b?a+':'+b:b+':'+a}
+/** Duct edge A↔B cooling — bans both directions so a silent wait cannot resume the bounce. */
+function soleDuctRelief(to){
+  // only exit left (or every other exit still sealed): allow return after a short sit
+  // (was siteT>40 — finished dead-ends sat "mind silent" with no route until that timer)
+  if(to==null||!player||(player.siteT||0)<12)return false;
+  const open=exits?exits.filter(e=>!(sealMap&&sealMap[e.i])):[];
+  if(open.length===1&&open[0].to===to)return true;
+  return exits.length>0&&exits.every(e=>e.to===to||(sealMap&&sealMap[e.i]));
+}
+/** Other open ducts exist on paper but none are pathable — allow this exit so Mind is not silent in a pocket. */
+function pathDuctRelief(to){
+  if(to==null||!player||!exits||!exits.length)return false;
+  const open=exits.filter(e=>!(sealMap&&sealMap[e.i]));
+  const here=open.find(e=>e.to===to);if(!here||!pathToDuct(player,here,1400))return false;
+  const others=open.filter(e=>e.to!==to);
+  return others.length>0&&others.every(e=>!pathToDuct(player,e,1400));
+}
+function siteDone(id){return !!(id!=null&&RG&&RG.siteDone&&RG.siteDone.has(id))}
+function markSiteDone(id){
+  if(id==null||!RG)return;
+  if(!RG.siteDone)RG.siteDone=new Set();
+  RG.siteDone.add(id);
+}
+/** Unvisited ground reachable through `to` (BFS continues through done sites as corridors). */
+function frontierValue(from,to,depth){
+  if(to==null||!RG)return-9;
+  const lim=depth==null?10:depth,S=RG.sites;
+  let unvis=0,fresh=0,maxT=S[to].tier;
+  const seen=new Set([from,to]);let q=[[to,0]];
+  while(q.length){
+    const[id,d]=q.shift();const s=S[id];
+    if(!s.visited)unvis++;
+    else if(s.lastVisit==null||RG.tick-s.lastVisit>100)fresh+=.2;
+    maxT=Math.max(maxT,s.tier);
+    if(d>=lim)continue;
+    for(const j of s.nb||[])if(!seen.has(j)){seen.add(j);q.push([j,d+1])}
+  }
+  // done leaf with nothing beyond: worthless destination (but corridors with unvis beyond still score)
+  if(siteDone(to)&&unvis<1)return-6+(S[to].visited?0:.2);
+  return unvis*2.4+fresh+(maxT-(S[from]?S[from].tier:0))*.3+(S[to].visited?0:1);
+}
+function edgeBanned(to){
+  if(to==null||!RG||!RG.edgeBan)return false;
+  // never block climbing deeper — edge cool was forcing the only open path back to start
+  const cur=RG.sites[RG.cur],dst=RG.sites[to];
+  if(cur&&dst&&dst.tier>cur.tier)return false;
+  const until=RG.edgeBan.get(edgeKey(RG.cur,to))||0;
+  if(gameTime>=until)return false;
+  if(soleDuctRelief(to))return false;
+  return true;
+}
+function hopBanned(to){
+  if(to==null||!RG)return false;
+  if(soleDuctRelief(to))return false;
+  const cur=RG.sites[RG.cur],dst=RG.sites[to];
+  if(cur&&dst&&dst.tier>cur.tier)return false;
+  if(edgeBanned(to))return true;
+  if(!RG.hopBan||RG.hopBan.id!==to)return false;
+  return gameTime<(RG.hopBan.until||0);
+}
+/** Real emergencies only — isIsolated must NOT pierce edge cooling (Coward seal→flee-home bounce). */
+function travelEscape(to){
+  if(to==null||!RG)return false;
+  const a=player,s=RG.sites[RG.cur];
+  if(siteDanger(s)>=.5)return true;
+  if(s&&s.phase==='collapse'&&(a.siteT||0)>14)return true;
+  if((a.stationNeed&&a.stationNeed>gameTime)||stationHungry(a))return true;
+  return false;
+}
+function travelBackOk(to){
+  if(to==null)return false;
+  if(pathDuctRelief(to))return true;
+  if(hopBanned(to))return travelEscape(to)||pathDuctRelief(to);
+  if(RG&&RG.prev!=null&&to===RG.prev){
+    const a=player,dwell=siteDwell(RG.sites[RG.cur]);
+    const minBack=Math.max(28,Math.min(48,(dwell||40)*.75));
+    if((a.siteT||0)<minBack)return travelEscape(to)||pathDuctRelief(to);
+  }
+  return true;
+}
+function boardTravel(to){if(to==null||!travelBackOk(to))return false;pendingTravel=to;return true}
+function stepOffDuct(a){
+  if(!a||!map)return null;const i=idx(a.x|0,a.y|0);if(map[i]!==2)return null;
+  const x=i%MW,y=(i/MW)|0;
+  for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
+    const X=x+dx,Y=y+dy;if(!walk(X,Y)||map[idx(X,Y)]===2)continue;
+    return{tile:idx(X,Y),range:.35,v:'WANDER',lab:'off the duct'};
+  }
+  return null;
+}
 /** Closest reachable tile that reduces distance to (tx,ty) — for when full duct path is blocked mid-route. */
 function seekTileToward(a,tx,ty,lim){
   const hx=a.x|0,hy=a.y|0,here=idx(hx,hy);let best=here,bd=Math.hypot(hx-tx,hy-ty);
@@ -2750,10 +2932,26 @@ const cond=(a,w)=>!w||!condWhy(a,w);
 const isPlayer=a=>a===player;
 const VERB={
   FIGHT(a,p){if(blocked(a,'FIGHT'))return null;const hs=seenWhere(a,p.r==null?a.vision:Math.min(p.r,a.vision+6),b=>wants(a,b));if(!hs.length)return null;return swing(a,hs[0])},
-  HUNT(a,p){if(blocked(a,'HUNT'))return null;let best=null,bd=a===player?14:a.vision+3;for(const b of actors){if(b.dead||b===a||b.faction===a.faction&&a.faction==='player')continue;if(b.construct&&!a.construct)continue;
-      if(p.edible?(!canEat(a,b)||b.comp.species===a.comp.species||(b.civ&&b.civ===a.civ)):(a!==player&&!wants(a,b)))continue;
-      if(a===player&&(b.faction==='player'||(b.civ&&!wants(b,a))))continue;const d=Math.hypot(b.x-a.x,b.y-a.y);if(d<bd){bd=d;best=b}}
-    return best?swing(a,best):null},
+  HUNT(a,p){
+    if(blocked(a,'HUNT'))return null;
+    const ok=b=>{
+      if(b.dead||b===a||(b.faction===a.faction&&a.faction==='player'))return false;
+      if(b.construct&&!a.construct)return false;
+      if(p.edible?(!canEat(a,b)||b.comp.species===a.comp.species||(b.civ&&b.civ===a.civ)):(a!==player&&!wants(a,b)))return false;
+      if(a===player&&(b.faction==='player'||(b.civ&&!wants(b,a))))return false;
+      return true;
+    };
+    // player: only hunt what is in sight — range-only picks walked into fog forever
+    if(a===player){
+      for(const b of seenWhere(a,a.vision+1,ok)){
+        if(footDist(a.x,a.y,b)<2.4||pathTo(a,b.x|0,b.y|0,560))return swing(a,b);
+      }
+      return null;
+    }
+    let best=null,bd=a.vision+3;
+    for(const b of actors){if(!ok(b)||!los(a.x|0,a.y|0,b.x|0,b.y|0))continue;const d=Math.hypot(b.x-a.x,b.y-a.y);if(d<bd){bd=d;best=b}}
+    return best?swing(a,best):null;
+  },
   FLEE(a){if(blocked(a,'FLEE'))return null;const hs=seenThreats(a,6);if(!hs.length)return null;const t=fleeTarget(a,hs);return t<0?null:{tile:t,range:.3,lab:'away from '+aname(hs[0])}},
   AVOID(a,p){const hs=seenThreats(a,p.r);if(!hs.length)return null;const t=fleeTarget(a,hs);return t<0?null:{tile:t,range:.3,lab:'distance'}},
   FEED(a){
@@ -2897,34 +3095,50 @@ const VERB={
     if(a!==player)return NPCV.TRAVEL(a,p);
     const s=RG.sites[RG.cur];
     if(p.to==='safety'&&siteDanger(s)<.5)return null;
+    // cached/orphan gens can leave zero ducts while the region still has neighbours
+    ensureExits(s);if(s.dun){s.dun.exits=exits;s.dun.map=map;s.dun.flr=flr;s.dun.blk=blk}
     const idleLeave=(a.idleT||0)>3;
+    // idle: drop stale path bans / explore target before deciding the site is "done"
+    if(idleLeave){if(a.bad&&a.bad.size)a.bad.clear();a.exT=null}
+    // every duct is a candidate (incl. sealed — TRAVEL unseals). knownDucts hid sealed onward routes so only the return looked viable
+    for(const e of exits)if(!explored[e.i])explored[e.i]=1;
+    let known=exits.filter(e=>!isBad(a,'t'+e.i));
     // dwell only while there is still ground to cover; once explored, leave without waiting out the timer
-    const exploredOut=a.exT==null&&!bfs(a.x|0,a.y|0,i=>unexploredFor(a,i)&&!isBad(a,'t'+i),idleLeave?900:480);
+    // (do not key off a.exT — a leftover explore tile made TRAVEL pretend the pocket was still open)
+    const exploredOut=!bfs(a.x|0,a.y|0,i=>unexploredFor(a,i)&&!isBad(a,'t'+i),idleLeave?900:480);
     const needGo=!!(a.stationNeed&&a.stationNeed>gameTime)||!!stationHungry(a)||isIsolated(s)||(s.phase==='collapse'&&(a.siteT||0)>14);
     if(needGo&&stationHungry(a)&&!(a.stationNeed>gameTime))noteStationNeed('starving station');
     const dwell=siteDwell(s);
     const idleGo=(a.idleT||0)>6&&(a.siteT||0)>=12;
-    if(p.to!=='safety'&&p.to!=='rival'&&(a.siteT||0)<(needGo?18:dwell)&&!exploredOut&&!(a.focus.all>patience(a))&&!needGo&&!idleGo)return null;
-    // idle: path-fail markBad on corridor tiles was blocking the only route the UI still advertised
-    if(idleLeave&&a.bad&&a.bad.size){a.bad.clear();a.exT=null}
-    let known=knownDucts(a);
-    // idle / empty: every unsealed exit (fog often hid explored[e.i])
-    if(!known.length||idleLeave){
-      const raw=exits.filter(e=>!(sealMap&&sealMap[e.i]));
-      if(raw.length){for(const e of raw){if(idleLeave&&!explored[e.i])explored[e.i]=1}known=raw}
-    }
+    const restless=(a.focus.all||0)>patience(a)||a.energy<=a.maxEnergy*.3||needGo||idleGo||idleLeave;
+    // brief settle on arrival — not a long wait-mask; stops instant duct thrash
+    if(p.to!=='safety'&&p.to!=='rival'&&(a.siteT||0)<8&&!needGo&&!idleLeave)return null;
+    if(p.to!=='safety'&&p.to!=='rival'&&(a.siteT||0)<(needGo?18:dwell)&&!exploredOut&&!(a.focus.all>patience(a))&&!needGo&&!idleGo&&!idleLeave)return null;
     const ductLim=idleLeave?1400:900;
     const minBack=Math.max(28,Math.min(48,(dwell||40)*.75));
     let cands=known;
-    if((a.siteT||0)<minBack&&RG.prev!=null){
-      const onward=cands.filter(e=>e.to!==RG.prev);
-      if(onward.length)cands=onward;
-      else if(!exploredOut&&!needGo&&p.to!=='safety')return null;
-      else if(exploredOut&&(a.siteT||0)<14&&!needGo&&p.to!=='safety'&&!idleLeave)return null;
+    // finished pocket with other exits: drop the return duct immediately (no visited/siteT wait — that only masked missing onward picks)
+    // never drop the last duct — sole return + exploredOut was emptying cands → silent Mind
+    const onward=cands.filter(e=>e.to!==RG.prev);
+    if(exploredOut&&onward.length){
+      // only prefer onward that we can actually board (ensureExits can put ducts on sealed-deck islands)
+      const onwardReach=onward.filter(e=>pathToDuct(a,e,ductLim));
+      cands=onwardReach.length?onwardReach:onward;
+    }else if(exploredOut&&RG.prev!=null&&!soleDuctRelief(RG.prev)){
+      const kept=cands.filter(e=>e.to!==RG.prev||soleDuctRelief(e.to)||pathDuctRelief(e.to));
+      if(kept.length)cands=kept;
     }
+    cands=cands.filter(e=>travelBackOk(e.to)||soleDuctRelief(e.to)||pathDuctRelief(e.to));
+    // drop dead-end done sites unless every duct is one (then must transit)
+    {const live=cands.filter(e=>!(siteDone(e.to)&&frontierValue(s.id,e.to,10)<-3));if(live.length)cands=live}
     if(!cands.length)return null;
     // prefer fully pathable ducts; else walk toward the best duct (UI already showed the name)
     let reach=cands.filter(e=>pathToDuct(a,e,ductLim));
+    // onward-only left unreachable fog ducts — fall back to any pathable exit (usually the return)
+    if(!reach.length){
+      const fall=known.filter(e=>pathToDuct(a,e,ductLim)&&(travelBackOk(e.to)||soleDuctRelief(e.to)||pathDuctRelief(e.to)));
+      if(fall.length){cands=fall;reach=fall}
+    }
     let best=null,bv=-1e9,seekStep=null;
     const scoreE=e=>{let v=travelScore(RG.sites[e.to],p.to,s);if(v>-1e8&&a.travelTo===e.to)v+=.5;return v};
     const pool=reach.length?reach:cands;
@@ -2932,27 +3146,48 @@ const VERB={
     if(!best||(bv<=-1e8&&!idleLeave)){
       if(p.to==='mark'||p.to==='safety'||p.to==='news'||p.to==='remains'||p.to==='power'||p.to==='crew'||p.to==='rite'||p.to==='rival')return null;
       if(p.to==='plenty'||p.to==='kin'){
-        const restless=(a.focus.all||0)>patience(a)||a.energy<=a.maxEnergy*.3||needGo||idleGo||idleLeave;
         if(!restless&&(!exploredOut||(a.siteT||0)<minBack))return null;
       }
+      // always pick a duct by frontier — never sit silent waiting for a timer to expire
       bv=-1e9;best=null;
-      for(const e of cands){const o=RG.sites[e.to];const v=(o.visited?0:2)+(o.tier-s.tier)*.2-(e.to===RG.prev?2.5:0)-(o.lastVisit!=null&&RG.tick-o.lastVisit<120?1.5:0)+(a.travelTo===e.to?.5:0);if(v>bv){bv=v;best=e}}
+      for(const e of cands){
+        const o=RG.sites[e.to];
+        const front=frontierValue(s.id,e.to,10);
+        let v=(o.visited?0:3.5)+front*.7+(o.tier>s.tier?.8:o.tier===s.tier?.35:-.15*(s.tier-o.tier))
+          -(e.to===RG.prev?2.5:0)-(o.lastVisit!=null&&RG.tick-o.lastVisit<80?1:0)+(a.travelTo===e.to?.5:0)
+          +(siteDone(e.to)&&front<1?-5:0);
+        if(v>bv){bv=v;best=e}
+      }
     }
     if((p.to==='plenty'||p.to==='kin')&&bv>-1e8&&!exploredOut&&!idleGo&&!idleLeave){const r=dietOf(a).res;const here=p.to==='plenty'?s.res[r]:(s.civ&&!s.civ.grudge&&!civAggressive(s.civ)?[...a.mind].filter(t=>s.civ.memes.has(t)).length+.2:-1);if(bv<=here+.15&&!(a.focus.all>patience(a)))return null}
-    if(best&&RG.prev!=null&&best.to===RG.prev&&(a.siteT||0)<minBack&&!exploredOut&&p.to!=='safety'&&!needGo&&!idleLeave)return null;
+    if(best&&!travelBackOk(best.to)&&!soleDuctRelief(best.to)&&!pathDuctRelief(best.to))return null;
     if(!best)return null;
-    const canBoard=pathToDuct(a,best,ductLim);
+    const sealed=!!(sealMap&&sealMap[best.i]);
+    // sealed duct: Wayfarer has no EXTRACT — TRAVEL itself quarries the seal, then boards next think
+    if(sealed){
+      const seal=objs.find(o=>o.sub==='seal'&&idx(o.x,o.y)===best.i);
+      if(seal){
+        a.travelTo=best.to;
+        return{ent:seal,range:1.2,act:'unseal',to:best.to,lab:'seal → '+RG.sites[best.to].name,v:'TRAVEL'};
+      }
+      // orphan sealMap bit with no object — clear so walk/board can proceed
+      if(sealMap)sealMap[best.i]=0;
+    }
+    const canBoard=!sealed&&pathToDuct(a,best,ductLim);
     if(!canBoard){
       seekStep=seekTileToward(a,best.i%MW,(best.i/MW)|0,ductLim);
+      // trapped in a side pocket: any step that gets closer on a longer search
+      if(seekStep==null)seekStep=seekTileToward(a,best.i%MW,(best.i/MW)|0,Math.max(ductLim,2200));
       if(seekStep==null)return null;
     }
     a.travelTo=best.to;
     // #region agent log
-    if(!(a._dbgTravelAt>gameTime-.8)){a._dbgTravelAt=gameTime;_dbgLog('G','TRAVEL:go','travel intent',{to:best.to,name:RG.sites[best.to].name,pol:p.to,siteT:a.siteT,exploredOut,focus:a.focus&&a.focus.all,pat:patience(a),bv,ducts:cands.length,reach:reach.length,seek:seekStep,idleT:a.idleT||0})}
+    if(!(a._dbgTravelAt>gameTime-.8)){a._dbgTravelAt=gameTime;_dbgLog('G','TRAVEL:go','travel intent',{to:best.to,name:RG.sites[best.to].name,pol:p.to,siteT:a.siteT,exploredOut,focus:a.focus&&a.focus.all,pat:patience(a),bv,ducts:cands.length,reach:reach.length,seek:seekStep,idleT:a.idleT||0,sealed})}
     // #endregion
     if(canBoard)return{tile:best.i,range:1.15,act:'travel',to:best.to,lab:RG.sites[best.to].name,v:'TRAVEL'};
     // step toward the duct the Mind already named — do not stand silent while the label points off-screen
-    return{tile:seekStep,range:.5,to:best.to,lab:'toward '+RG.sites[best.to].name,v:'TRAVEL'};
+    // no act:'travel' yet (path incomplete); arrival clears intent so rethink can board from closer ground
+    return{tile:seekStep,range:.5,to:best.to,lab:(sealed?'sealed ':'toward ')+RG.sites[best.to].name,v:'TRAVEL'};
   },
   THROW(a){
     const ammo=Object.keys(a.inv).filter(m=>a.inv[m]>0&&(MP(m,'sharp')>=2||MP(m,'hard')>=3)).sort((p,q)=>MP(q,'sharp')-MP(p,'sharp'))[0];
@@ -3161,10 +3396,30 @@ const VERB={
     return r.v>0?{tile:r.i,range:.4,act:'slick',lab:'oil'}:null;
   },
   SEAL(a){
+    if((a.sealCd||0)>gameTime)return null;
     if(!hasMats(a,BUILD.wall.need)||objs.some(o=>o.sub==='seal'))return null;
-    const known=exits.filter(e=>!(sealMap&&sealMap[e.i])&&(a!==player||explored[e.i])&&!objs.some(o=>o.x===e.i%MW&&o.y===((e.i/MW)|0)));
+    const open=exits.filter(e=>!(sealMap&&sealMap[e.i]));
+    // never wall the last open duct — that forced TRAVEL to unseal, then SEAL again forever
+    if(open.length<=1)return null;
+    if(a===player){
+      const s=RG&&RG.sites[RG.cur];
+      if(s&&(isIsolated(s)||(a.idleT||0)>3||(a.focus.all||0)>patience(a)))return null;
+      if(!bfs(a.x|0,a.y|0,i=>unexploredFor(a,i)&&!isBad(a,'t'+i),480))return null;
+    }
+    const known=open.filter(e=>(a!==player||explored[e.i])&&!objs.some(o=>o.x===e.i%MW&&o.y===((e.i/MW)|0))&&!isBad(a,'t'+e.i));
     if(!known.length)return null;
-    let best=known[0],bd=1e9;for(const e of known){const d=Math.hypot((e.i%MW)+.5-a.x,((e.i/MW)|0)+.5-a.y);if(d<bd){bd=d;best=e}}
+    // nearest pathable duct (soft non-return bias) — hard "onward only" walked into fog past the duct underfoot
+    let best=null,bv=-1e9;
+    for(const e of known){
+      const d=Math.hypot((e.i%MW)+.5-a.x,((e.i/MW)|0)+.5-a.y);
+      if(a===player){
+        if(d>1.8&&!pathToDuct(a,e,700))continue;
+        if(d>10&&!vis[e.i])continue;
+      }
+      let v=-d+(e.to!==RG.prev?1.5:0)+(a===player&&vis[e.i]?4:0);
+      if(v>bv){bv=v;best=e}
+    }
+    if(!best)return null;
     return{tile:best.i,range:1.3,act:'seal',at:best.i,lab:'the duct'};
   },
   DRIVE(a){
@@ -3473,7 +3728,7 @@ function act(a,it){
     case'extract':{const def=it.floor?floorAt(it.target):blockAt(it.target);if(!def){a.thinkT=0;markBad(a,it);break}
       startBusy(a,'work',(.8+(def.hard||1)*.7)/toolFactor(a,it.how),()=>{const before=packCount(a);if(a.equip.tool&&a.equip.tool.st.lance&&!onGrid(a)&&!useMat(a,'cell')){markBad(a,it);return}extract(a,it.target,it.floor,it.how);if(it.dig){const s=RG.sites[RG.cur];s.dug=(s.dug||0)+1}if(packCount(a)<=before)markBad(a,it)});break}
     case'refine':{const g=(a.equip.tool&&a.equip.tool.st.grind)||1;const t=it.rec.fam==='GRIND'?it.rec.t/g:it.rec.t;startBusy(a,'work',t,()=>refine(a,it.rec));break}
-    case'travel':if(a===player)pendingTravel=it.to;break;
+    case'travel':if(a===player&&it.to!=null)boardTravel(it.to);break;
     case'throw':startBusy(a,'work',.45,()=>throwAt(a,it.ent,it.ammo));break;
     case'hide':a.hidden=true;startBusy(a,'hide',1,()=>{});break;
     case'build':startBusy(a,'work',(it.what==='wall'?.8:1.5)/buildFactor(a),()=>{const n=objs.length;build(a,it.what,it.at);if(objs.length<=n)markBad(a,it)});break;
@@ -3486,7 +3741,7 @@ function act(a,it){
     case'slick':startBusy(a,'work',.6,()=>pourSlick(a,it.tile));break;
     case'unslick':startBusy(a,'work',.8,()=>clearSlick(a,it.target));break;
     case'seal':startBusy(a,'work',hasTrait(a,'Seal-Mind')?.7:1.2,()=>doSeal(a,it.at));break;
-    case'unseal':startBusy(a,'work',hasTrait(a,'Seal-Mind')?.7:1.2,()=>doUnseal(a,it.ent));break;
+    case'unseal':startBusy(a,'work',hasTrait(a,'Seal-Mind')?.7:1.2,()=>{doUnseal(a,it.ent);if(a===player&&it.to!=null)boardTravel(it.to)});break;
     case'lay':startBusy(a,'work',.4,()=>layGoods(a,it.mat));break;
     case'wait':startBusy(a,'work',1.2,()=>{});break;
     case'takeGoods':startBusy(a,'work',.6,()=>takeGoods(a,it.ent));break;
@@ -3519,6 +3774,13 @@ function act(a,it){
     case'npreach':startBusy(a,'work',2,()=>npreach(a,it.ent));break;
     default:
       a.thinkT=Math.min(a.thinkT,.08);
+      // walk-only TRAVEL: board if already on/beside the named duct; else clear so rethink can upgrade to act:'travel'
+      if(!it.act&&it.v==='TRAVEL'&&it.to!=null&&a===player){
+        const i=idx(a.x|0,a.y|0);
+        const e=exits.find(x=>x.to===it.to&&!(sealMap&&sealMap[x.i])&&(x.i===i||Math.abs(x.i%MW-i%MW)+Math.abs(((x.i/MW)|0)-((i/MW)|0))<=1));
+        if(e&&boardTravel(it.to)){a.intent=null;break}
+        a.intent=null;break;
+      }
       // walk-only intents (WANDER/EXPLORE/…) — clear on arrival so rethink keeps move-first, not a stuck label
       if(!it.act&&(it.v==='WANDER'||it.v==='EXPLORE'||it.v==='HOME'||it.v==='GUARD'||it.v==='FLOCK'||it.v==='HEEL'))a.intent=null;
   }
@@ -3619,6 +3881,8 @@ function doSeal(a,at){if(!sealMap||sealMap[at]||objs.some(o=>o.x===at%MW&&o.y===
 }
 function doUnseal(a,o){if(!objs.includes(o))return;const i=idx(o.x,o.y);const ex=exits.find(e=>e.i===i);removeObj(o);if(sealMap)sealMap[i]=0;const got=o.parts.map(p=>p[1]);if(a.comp&&a.comp.sign==='Seal'&&got.length)got.push(got[0]);for(const m of got)addMat(a,m,1);
   if(ex&&RG){const here=RG.sites[RG.cur];sealCutOf(here).delete(ex.to);const other=RG.sites[ex.to];if(other)sealCutOf(other).delete(RG.cur);announce('ductmend',RG.cur,{sa:here.name,sb:other?other.name:'the dark'})}
+  // stop Coward SEAL→TRAVEL unseal→SEAL loops: do not re-wall what we just opened
+  if(a)a.sealCd=gameTime+75;
   if(a===player)log(`${a.comp.name} quarries the seal → ${partsStr(null,got)}.`,'dim')}
 function layGoods(a,m){if(!useMat(a,m))return;const x=(a.x|0)+a.face,y=a.y|0;const o=dropItem(walk(x,y)?x:(a.x|0),walk(x,y)?y:(a.y|0),{t:'mat',mat:m,n:1,goods:1,by:a.id});if(o&&a===player)log(`${a.comp.name} lays out ${MATS[m].n}.`,'dim')}
 function takeGoods(a,o){if(!objs.includes(o)||!o.it||!o.it.goods)return;const m=o.it.mat;removeObj(o);addMat(a,m,1);a.tradeCd=gameTime+40;
@@ -4793,10 +5057,10 @@ function genRegion(){
   const E=[];
   for(const s of S){const near=S.filter(o=>o!==s).sort((p,q)=>Math.hypot(p.x-s.x,p.y-s.y)-Math.hypot(q.x-s.x,q.y-s.y)).slice(0,3);let k=0;
     for(const o of near){if(k>=2||s.nb.includes(o.id)||Math.hypot(o.x-s.x,o.y-s.y)>34)continue;if(E.some(([a,b])=>a!==s&&a!==o&&b!==s&&b!==o&&segX(a,b,s,o)))continue;s.nb.push(o.id);o.nb.push(s.id);E.push([s,o]);k++}}
-  // join any islands
-  for(let pass=0;pass<20;pass++){const comp=new Array(S.length).fill(-1);let c=0;for(const s of S){if(comp[s.id]>=0)continue;const q=[s.id];comp[s.id]=c;while(q.length){const i=q.pop();for(const j of S[i].nb)if(comp[j]<0){comp[j]=c;q.push(j)}}c++}
-    if(c<=1)break;let best=null,bd=1e9;for(const a of S)for(const b of S){if(comp[a.id]!==0||comp[b.id]===0)continue;const d=Math.hypot(a.x-b.x,a.y-b.y);if(d<bd){bd=d;best=[a,b]}}
-    best[0].nb.push(best[1].id);best[1].nb.push(best[0].id)}
+  // join any islands (nearest pair across any two components — not only component 0)
+  for(let pass=0;pass<40;pass++){const comp=new Array(S.length).fill(-1);let c=0;for(const s of S){if(comp[s.id]>=0)continue;const q=[s.id];comp[s.id]=c;while(q.length){const i=q.pop();for(const j of S[i].nb)if(comp[j]<0){comp[j]=c;q.push(j)}}c++}
+    if(c<=1)break;let best=null,bd=1e9;for(const a of S)for(const b of S){if(comp[a.id]===comp[b.id])continue;const d=Math.hypot(a.x-b.x,a.y-b.y);if(d<bd){bd=d;best=[a,b]}}
+    if(!best)break;if(!best[0].nb.includes(best[1].id))best[0].nb.push(best[1].id);if(!best[1].nb.includes(best[0].id))best[1].nb.push(best[0].id)}
   // biomes: early lean Bone, mid Plate, deep Lease; soft register weights follow site type
   const EARLY_T=['Midden','Dig','Ossuary','Cistern','Hab','Stacks','Parish','Smokehall','Boneyard','Hideyard','Ashcamp','Pit','Crypt','Hearth','Flue'],
         MID_T=['Foundry','Kiln','Sump','Parish','Gallery','Stacks','Grid','Hab','Pumphouse','Meterward','Rivetyard','Coldstore','Ashcamp','Furnace','Shaft','Quench','Stampyard','Gasket'],
@@ -4809,25 +5073,18 @@ function genRegion(){
     const pool=tier[s.id]<=1?EARLY_T:tier[s.id]>=4?LATE_T:MID_T;
     s.type=R()<.2?PICK(pool):seeds.slice().sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y))[0].t;
     if(R()<.55&&!pool.includes(s.type))s.type=PICK(pool);
-    // bias the map toward wilderness biomes; holds remain rare pockets
+    // bias the map toward dug / industrial biomes; settlement emerges in soup, not from pre-tagged pockets
     if(R()<.42)s.type=PICK(WILD_POOL.filter(t=>pool.includes(t)).concat(WILD_POOL).slice(0,12));
     if(s===start)s.type=PICK(['Midden','Dig','Pit','Crypt','Ashcamp','Shaft','Flue','Boneyard']);
     s.tier=tier[s.id];const T=SITE_T[s.type];
     s.base={};s.res={};for(const k of RES_K){s.base[k]=clamp(T.res[k]*(.75+R()*.5),.05,1);s.res[k]=s.base[k]}
-    // civilized pocket if type can host a hold (~1 in 4); start is always wild
-    s.hold=s!==start&&HOLD_CAPABLE.has(s.type)&&R()<.26;
-    if(!s.hold){s.base.light=clamp(s.base.light*.55,.05,1);s.base.food=clamp(s.base.food*.85,.05,1);s.res.light=s.base.light;s.res.food=s.base.food}
-    else{s.base.light=clamp(s.base.light*1.12,.05,1.2);s.res.light=s.base.light}
     const sp={};for(const p of PLAYABLE){const d=DIET[p];sp[p]=.2+s.base[d.res]*2+R()*.4}
-    Object.assign(s,{N:s.hold?RI(5,14):RI(2,8),Q:R()<(s.hold?.45:.55)?RI(0,3):0,S:0,sp,civ:null,arts:0,ruins:[],read:[],seed:RI(1,1e9),visited:false,dun:null,collapseT:-999,warT:-999,phase:'primordial',cx:0,avail:s.hold?.55:.35,reg:{...siteReg(s.type)}});
+    Object.assign(s,{N:RI(3,11),Q:R()<.5?RI(0,3):0,S:0,sp,civ:null,arts:0,ruins:[],read:[],seed:RI(1,1e9),visited:false,dun:null,collapseT:-999,warT:-999,phase:'primordial',cx:0,avail:.4,reg:{...siteReg(s.type)},hold:false});
   }
-  // ensure a sparse scatter of holds so the region is not empty forever
-  {const holds=S.filter(s=>s.hold);if(holds.length<8){const cand=S.filter(s=>!s.hold&&s!==start&&HOLD_CAPABLE.has(s.type));cand.sort(()=>R()-.5);for(const s of cand){if(holds.length>=10)break;s.hold=true;s.base.light=clamp(s.base.light*1.2,.05,1.2);s.res.light=s.base.light;s.N=Math.max(s.N,RI(5,12));holds.push(s)}}
-    // drop excess holds so wilderness dominates
-    if(holds.length>Math.max(10,S.length*.22|0)){holds.sort(()=>R()-.5);while(holds.length>Math.max(10,S.length*.2|0)){const s=holds.pop();if(s===start)continue;s.hold=false;s.base.light=clamp(s.base.light*.55,.05,1);s.res.light=s.base.light}}}
-  RG={sites:S,start:start.id,cur:start.id,prev:null,tick:0,civs:[],crit:0,events:[],flowIn:[],flowOut:[],inside:false};
+  RG={sites:S,start:start.id,cur:start.id,prev:null,tick:0,civs:[],crit:0,events:[],flowIn:[],flowOut:[],inside:false,edgeBan:new Map(),hopBan:null,siteDone:new Set()};
   cyc={ph:R()*6.283,per:220+R()*80,amp:.45+R()*.15,sq:.5,sqNext:60+R()*90};
   soupQuiet=true;for(let k=0;k<450;k++){cycleStep(2);regionStep()}soupQuiet=false;RG.events=[];
+  for(const s of RG.sites)ensureSiteHold(s);
 }
 // what a site's bodies can eat, given its species mix
 function siteAvail(s){let w=0,v=0;for(const p in s.sp){w+=s.sp[p];v+=s.sp[p]*s.res[DIET[p].res]}return w?v/w:0}
@@ -4838,7 +5095,7 @@ function foundRegionCiv(s){
   // fall scar: next founding sometimes inherits a parasite or last meme from the ruins
   if(s.fallSeed&&TH[s.fallSeed]&&!v.memes.has(s.fallSeed)&&v.memes.size<6&&R()<.7){v.memes.set(s.fallSeed,{fit:.45});if(PARA_SET.has(s.fallSeed))announce('parasite',s.id,{civ:v.name,idea:TH[s.fallSeed].n,site:s.name});s.fallSeed=null}
   if((s.rite||0)>=3&&v.memes.size<6&&R()<.4){const bag=[...PARA_SET].filter(t=>!v.memes.has(t)&&TH[t]);if(bag.length)seedParasite(v,s,PICK(bag))}
-  s.civ=v;s.hold=true;RG.civs.push(v);
+  s.civ=v;ensureSiteHold(s);RG.civs.push(v);
   const ruin=s.ruins.length?s.ruins[s.ruins.length-1]:null;
   announce('found',s.id,{civ:v.name,site:s.name,species:v.species,ruin:ruin?`, on the ruins of ${ruin.name}`:'',ideas:[...v.memes.keys()].map(t=>TH[t].n).join(', ')});
   RG.events.push({type:'found',site:s.id,civ:v});return v;
@@ -4851,7 +5108,7 @@ function fallRegionCiv(v){
   for(const id of v.sites){const s=RG.sites[id];s.ruins.push({name:v.name,memes:top,hue:v.hue});if(s.ruins.length>3)s.ruins.shift();if(s.civ===v)s.civ=null;s.arts=0;
     s.fallReg=dominant;s.fallSeed=paras.length?PICK(paras):(top[0]||null);
     s.reg=s.reg||{...siteReg(s)};for(const k of REG_K)s.reg[k]=(s.reg[k]||0)+(k===dominant?.14:0);let sum=REG_K.reduce((a,k)=>a+s.reg[k],0);for(const k of REG_K)s.reg[k]/=sum;s.km=null;
-    RG.events.push({type:'fall',site:id,civ:v})}
+    ensureSiteHold(s);RG.events.push({type:'fall',site:id,civ:v})}
   announce('fall',[...v.sites][0],{civ:v.name,sites:[...v.sites].map(i=>RG.sites[i].name).join(', ')});
   v.sites.clear();
 }
@@ -4893,11 +5150,13 @@ function regionStep(){
     const births=.22*s.N*av*(canRep?1:.3)*Math.max(0,1-tot/RK)*(1+Math.min(.4,(s.A||0)*.03)),eaten=Math.min(s.N,.014*s.N*s.Q);
     s.N+=births-eaten-s.N*(.02+(av<.15?.06:0));
     s.Q+=.3*eaten-s.Q*(.05+(eaten<.05*s.Q?.04:0));
-    const settle=(av<.3?.04:.006)*s.N*.4*(s.hold?1:.12);s.N-=settle;s.S+=settle*(s.hold?1:.35);
-    {let die=s.civ&&s.S>=2&&s.S<=8&&av>=.18?.003:(.007+(av<.12?.03:0)+(s.hold?0:.02));
+    {const aff=settleAff(s);const settle=(av<.3?.04:.006)*s.N*.4*(aff>=1?.8:.16);s.N-=settle;s.S+=settle*(aff>=1?1:.4);
+      let die=s.civ&&s.S>=2&&s.S<=8&&av>=.18?.003:(.007+(av<.12?.03:0)+(aff<.7?.02:0));
       if((s.crew||0)>0)die*=.55;if((s.scar||0)>=2)die*=1.45;
-      s.S+=(s.civ?.035*s.S*av*(canRep?1:0)*Math.max(0,1-tot/RK):0)-s.S*die}
-    if(!s.hold)s.S=Math.min(s.S,1.2);
+      s.S+=(s.civ?.035*s.S*av*(canRep?1:0)*Math.max(0,1-tot/RK):0)-s.S*die
+      // soft ceiling by affinity — low-affinity sites can still reach founding, just rarer/smaller
+      s.S=Math.min(s.S,aff>=1?14:6)}
+    ensureSiteHold(s);
     // bodies eat what the site offers
     {let spSum=0;for(const p in s.sp)spSum+=s.sp[p];if(spSum>0)for(const p in s.sp){const w=s.sp[p]/spSum;s.res[DIET[p].res]=Math.max(0,s.res[DIET[p].res]-.0012*(s.N+s.S*.7+s.Q)*w)}}
     if(s.civ)s.res.mineral=Math.max(0,s.res.mineral-.0004*s.S);
@@ -4918,29 +5177,29 @@ function regionStep(){
     {const prim=primaryReg(s),chance=((prim==='bone'||prim==='lease')?.22:.14)*(cyc.sq>.65?1.4:1);
       if(s.Q<.8&&(s.N>3||s.res.food>.3)&&R()<chance)s.Q=Math.max(s.Q,1);
       else if(s.Q<1&&s.N>5&&R()<.08*(cyc.sq>.65?1.3:1))s.Q+=1}
-    if(s.type==='Parish'&&s.hold){const over=Math.max(0,s.N-3);s.N-=over;s.S=Math.min(12,s.S+over);s.Q=Math.min(s.Q,.35)}
+    if(s.type==='Parish'&&siteIsHold(s)){const over=Math.max(0,s.N-3);s.N-=over;s.S=Math.min(12,s.S+over);s.Q=Math.min(s.Q,.35)}
     // the species that eat best here grow; drift keeps diversity
     for(const p in s.sp)s.sp[p]=Math.max(.05,s.sp[p]*(1+.02*(s.res[DIET[p].res]-av))+.002);
   }
   // migration toward neighbours where this site's bodies would eat better
   for(const s of S){
     if(!(cm<.45||s.avail<.2)||s.N+s.Q<2)continue;
-    let best=null,bv=s.avail+.1;for(const j of openNb(s)){const o=S[j];let v=0,w=0;for(const p in s.sp){v+=s.sp[p]*o.res[DIET[p].res];w+=s.sp[p]}v/=w;if(o.hold)v+=.08;if(v>bv){bv=v;best=o}}
+    let best=null,bv=s.avail+.1;for(const j of openNb(s)){const o=S[j];let v=0,w=0;for(const p in s.sp){v+=s.sp[p]*o.res[DIET[p].res];w+=s.sp[p]}v/=w;if(siteIsHold(o))v+=.08;if(v>bv){bv=v;best=o}}
     if(!best)continue;const mN=s.N*.15,mQ=s.Q*.15;
     for(const p in s.sp)best.sp[p]=best.sp[p]*.9+s.sp[p]*.1;
     {const a=kindMix(s),b=kindMix(best);for(const k in a)b[k]=b[k]*.9+a[k]*.1}
     s.N-=mN;s.Q-=mQ;best.N+=mN;best.Q+=mQ;
     if(best.id===cur)RG.flowIn.push({from:s.id,N:mN,Q:mQ});if(s.id===cur)RG.flowOut.push({to:best.id,N:mN,Q:mQ});
   }
-  // civilizations — only in hold pockets, slower founding
-  for(const s of S)if(!s.civ&&s.hold&&s.S>=5&&R()<.12&&RG.tick-s.collapseT>55)foundRegionCiv(s);
+  // civilizations — emerge where settlers have gathered (affinity only softens founding chance)
+  for(const s of S)if(!s.civ&&s.S>=5&&RG.tick-s.collapseT>55&&R()<(settleAff(s)>=1?.12:.045))foundRegionCiv(s);
   for(const v of RG.civs){if(v.dead)continue;v.age++;
-    for(const id of[...v.sites])if(S[id].S<.5&&v.sites.size>1){v.sites.delete(id);if(S[id].civ===v)S[id].civ=null}
+    for(const id of[...v.sites])if(S[id].S<.5&&v.sites.size>1){v.sites.delete(id);if(S[id].civ===v)S[id].civ=null;ensureSiteHold(S[id])}
     v.pop=[...v.sites].reduce((a,id)=>a+S[id].S,0);
     if(v.pop<1.5){fallRegionCiv(v);continue}
     if(R()<.006&&v.sites.size<2+Math.min(3,v.age/400)){const from=[...v.sites].map(i=>S[i]).sort((a,b)=>b.S-a.S)[0];
-      const cand=openNb(from).map(j=>S[j]).filter(t=>!t.civ&&t.hold&&t.S<2&&siteAvail(t)>.3&&RG.tick-t.collapseT>40&&t.id!==cur);
-      if(cand.length&&from.S>5){const t=PICK(cand);t.civ=v;v.sites.add(t.id);from.S-=1.5;t.S+=1.5;announce('settle',t.id,{civ:v.name,site:t.name})}}
+      const cand=openNb(from).map(j=>S[j]).filter(t=>!t.civ&&t.S<2&&siteAvail(t)>.3&&RG.tick-t.collapseT>40&&t.id!==cur);
+      if(cand.length&&from.S>5){const prefer=cand.filter(t=>settleAff(t)>=1);const t=PICK(prefer.length&&R()<.7?prefer:cand);t.civ=v;v.sites.add(t.id);from.S-=1.5;t.S+=1.5;ensureSiteHold(t);ensureSiteHold(from);announce('settle',t.id,{civ:v.name,site:t.name})}}
     for(const id of v.sites){const s=S[id];if(s.S>3&&s.arts<4&&R()<.03)s.arts++}
     {const pLoad=parasiteLoad(v),schChance=.0015*v.sites.size+(pLoad>=2?.004:0)+(pLoad>=3?.006:0);
     if(v.sites.size>=3&&R()<schChance){const home=[...v.sites][0],cand=[...v.sites].filter(i=>i!==home&&S[i].S>=3&&i!==cur);
@@ -4978,14 +5237,51 @@ function regionStep(){
     announce('famine',s.id,{site:s.name,spread:hit.length>1?' It spreads to '+hit.slice(1).map(h=>h.name).join(', ')+'.':''})}}
   // bloom: a site suddenly heavy with flora
   for(const s of S){if(R()<.004&&s.F>6&&s.avail>.3&&RG.tick-(s.bloomT||-999)>100){s.bloomT=RG.tick;s.F=Math.min(18,s.F+3);announce('bloom',s.id,{site:s.name})}}
-  // ductbreak: rare isolation
-  if(R()<.003){const a=PICK(S.filter(s=>s.nb.length>1));if(a){const bId=PICK(a.nb),b=S[bId];if(b&&b.nb.length>1){a.nb=a.nb.filter(id=>id!==bId);b.nb=b.nb.filter(id=>id!==a.id);announce('ductbreak',a.id,{sa:a.name,sb:b.name})}}}
+  // ductbreak: rare — never cut a bridge (that stranded Cleancorridor in a 3-site island)
+  if(R()<.003){
+    const a=PICK(S.filter(s=>s.nb.length>2));
+    if(a){const bId=PICK(a.nb),b=S[bId];
+      if(b&&b.nb.length>2){
+        const reaches=(from,to,forbidA,forbidB)=>{const seen=new Set([from]);const q=[from];while(q.length){const i=q.pop();if(i===to)return true;for(const j of S[i].nb){if((i===forbidA&&j===forbidB)||(i===forbidB&&j===forbidA)||seen.has(j))continue;seen.add(j);q.push(j)}}return false};
+        if(reaches(a.id,b.id,a.id,bId)){a.nb=a.nb.filter(id=>id!==bId);b.nb=b.nb.filter(id=>id!==a.id);announce('ductbreak',a.id,{sa:a.name,sb:b.name})}
+      }}
+  }
+  ensureRegionConnected();
   const pop=S.reduce((a,s)=>a+s.N+s.Q+s.S,0)/(S.length*RK),hungry=S.filter(s=>s.avail<.2).length/S.length;
   RG.crit=clamp(pop*.5+hungry*.8,0,1);
   for(const s of S){const tot=s.N+s.Q+s.S,v=s.civ;s.cx=v?Math.min(2,v.age/300)+v.memes.size*.3+s.arts*.4+Math.min(1.5,s.S/8):0;s.cx+=s.ruins.length*.3;
     s.phase=RG.tick-s.collapseT<60?'collapse':tot<.2*RK?'primordial':!v?'competitive':s.cx<4?'colonial':'complex'}
 }
 function siteDanger(s){return(RG.tick-s.collapseT<60?1:0)+(RG.tick-s.warT<30?.6:0)+Math.min(1,s.Q/6)*.5+(s.civ&&s.civ.grudge>0?.6:0)+(s.civ&&civAggressive(s.civ)?.3:0)+(s.avail<.2?.5:0)+((s.scar||0)>=2?.25:0)+(isIsolated(s)?.2:0)}
+/** Re-stitch region islands (ductbreak / bad gens). Returns edges added. */
+function ensureRegionConnected(){
+  if(!RG||!RG.sites||RG.sites.length<2)return[];
+  const S=RG.sites,added=[];
+  for(let pass=0;pass<40;pass++){
+    const comp=new Array(S.length).fill(-1);let c=0;
+    for(const s of S){if(comp[s.id]>=0)continue;const q=[s.id];comp[s.id]=c;while(q.length){const i=q.pop();for(const j of S[i].nb||[])if(comp[j]<0){comp[j]=c;q.push(j)}}c++}
+    if(c<=1)break;
+    let best=null,bd=1e9;
+    for(const a of S)for(const b of S){if(comp[a.id]===comp[b.id])continue;const d=Math.hypot(a.x-b.x,a.y-b.y);if(d<bd){bd=d;best=[a,b]}}
+    if(!best)break;
+    const[a,b]=best;
+    if(!a.nb.includes(b.id))a.nb.push(b.id);
+    if(!b.nb.includes(a.id))b.nb.push(a.id);
+    added.push([a.id,b.id]);
+    // live dungeons: place the new duct tile so TRAVEL can board it
+    if(RG.inside&&RG.cur===a.id&&typeof ensureExits==='function'){ensureExits(a);if(a.dun){a.dun.exits=exits;a.dun.map=map}}
+    else if(a.dun&&typeof ensureExits==='function'){/* repaired on next enter via ensureExits */}
+    if(RG.inside&&RG.cur===b.id&&typeof ensureExits==='function'){ensureExits(b);if(b.dun){b.dun.exits=exits;b.dun.map=map}}
+  }
+  // invalidate stale dun.exits that no longer match nb (orphan / missing ducts)
+  for(const s of S){
+    if(!s.dun||!s.dun.exits)continue;
+    const want=new Set(s.nb||[]);
+    const ok=s.dun.exits.length===want.size&&s.dun.exits.every(e=>want.has(e.to));
+    if(!ok){s.dun.exits=null;if(RG.inside&&RG.cur===s.id){exits=[];ensureExits(s);s.dun.exits=exits;s.dun.map=map}}
+  }
+  return added;
+}
 // Mind wants a register neighbour for pilgrimage craft (smoke→token, marrow→stamp, gasket→clearance)
 function pilgrimNeedReg(){
   if(!player||!RG)return null;const inv=player.inv||{},has=t=>player.mind&&player.mind.includes(t);
@@ -4996,15 +5292,25 @@ function pilgrimNeedReg(){
 }
 function travelScore(s,pol,cur){
   // heavy anti-revisit so A↔B ducts do not win every other TRAVEL
-  const back=(s.id===RG.prev?-2.2:0)+(s.lastVisit!=null&&RG.tick-s.lastVisit<120?-1.4:0)+(s.lastVisit!=null&&RG.tick-s.lastVisit<40?-1.2:0);
+  const back=(s.id===RG.prev?-4:0)+(hopBanned(s.id)?-8:0)+(s.lastVisit!=null&&RG.tick-s.lastVisit<120?-1.4:0)+(s.lastVisit!=null&&RG.tick-s.lastVisit<40?-1.2:0);
   const need=player&&((player.stationNeed&&player.stationNeed>gameTime)||stationHungry(player))?1:0;
   const pulse=((s.pulseT||0)>gameTime?.55:0)+((s.newsHot||0)>RG.tick?.4:0);
   const pr=pilgrimNeedReg(),preg=pr&&primaryReg(s)===pr?.45:0;
   const goods=player&&pilgrimGoods(player)>=2;
   const markBonus=s.marked?pulse*.35+(pr?.2:0)+(goods?.25:0):0;
   switch(pol){
-    case'deeper':return s.tier>cur.tier?s.tier+(s.visited?0:.3)+back:-1e9;
-    case'unknown':return s.visited?-1e9:1+(s.tier>cur.tier?.2:0)+(isIsolated(s)?.25:0);
+    // deeper: follow unvisited frontier — done dead-ends score out; done corridors OK if they open new ground
+    case'deeper':{
+      const front=frontierValue(cur.id,s.id,10);
+      if(front<-3)return-1e9;
+      if(s.tier>cur.tier)return s.tier+(s.visited?0:.35)+back+front*.35;
+      if(s.tier===cur.tier)return .5+(s.visited?0:.55)+back+front*.4;
+      return-0.35+front*.45+back*.05;
+    }
+    case'unknown':{
+      if(s.visited)return-1e9;
+      return 1.2+(s.tier>cur.tier?.35:s.tier===cur.tier?.15:0)+(isIsolated(s)?.25:0)+back*.05+frontierValue(cur.id,s.id,8)*.15;
+    }
     case'plenty':{const r=dietOf(player).res;return s.res[r]>cur.res[r]+.08?s.res[r]+back+(need&&s.res.heat>cur.res.heat?.25:0)+preg+markBonus:-1e9}
     case'kin':{if(!s.civ||civAggressive(s.civ)||(s.civ.grudge||0)>2)return-1e9;let k=0;for(const t of player.mind)if(s.civ.memes.has(t))k++;return k+.2+back+((s.phase==='colonial'||s.phase==='complex')?.25:0)+((s.crew||0)*.15)-((s.civ.grudge||0)*.45)+(goods?.3:0)}
     case'safety':return-siteDanger(s)+back+(s.phase==='collapse'?-.55:0)+((s.phase==='colonial'||s.phase==='complex')?.2:0)+(isIsolated(cur)&&!isIsolated(s)?.35:0);
@@ -5196,9 +5502,12 @@ function enterSite(id,from,fs){
   if(typeof closeCard==='function'){closeCard();hoverPick=null;clearDucts()}
   const s=RG.sites[id];RG.cur=id;RG.inside=false;s.visited=true;s.lastVisit=RG.tick;depth=s.tier+1;ensureSiteHold(s);
   if(depth>save.best){save.best=depth;persist()}
-  if(s.dun){({map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,lvlCanvas,ECHO,POWER,slick}=s.dun);vis=new Uint8Array(MW*MH);if(!slick)slick=new Uint8Array(MW*MH);recountApertures();renderLevel()}
+  if(s.dun){({map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,lvlCanvas,ECHO,POWER,slick}=s.dun);vis=new Uint8Array(MW*MH);if(!slick)slick=new Uint8Array(MW*MH);recountApertures()}
   else{const keep=R;R=rngSeed(s.seed);ECHO=new Float32Array(MW*MH);POWER=new Float32Array(MW*MH);genLevel(s.nb,s);R=keep;
     s.dun={map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,lvlCanvas,ECHO,POWER,slick};}
+  // cached/old gens could leave zero ducts or several destinations on one tile — repair before spawn
+  ensureExits(s);if(s.dun){s.dun.exits=exits;s.dun.map=map;s.dun.flr=flr;s.dun.blk=blk;s.dun.bmat=bmat}
+  renderLevel();
   explored=vesselExplored(id);
   WALKS=[];for(let i=0;i<MW*MH;i++)if(map[i])WALKS.push(i);
   snareMap=new Uint8Array(MW*MH);sealMap=new Uint8Array(MW*MH);for(const o of objs){if(o.sub==='snare')snareMap[idx(o.x,o.y)]=1;if(o.sub==='seal')sealMap[idx(o.x,o.y)]=1}if(objs.some(o=>o.sub==='beacon'||o.sub==='cairn'))s.marked=1;
@@ -5206,10 +5515,10 @@ function enterSite(id,from,fs){
   const arr=from!=null?exits.find(e=>e.to===from):null;let px=startRoom.cx,py=startRoom.cy;
   if(arr){const ax=arr.i%MW,ay=(arr.i/MW)|0;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]])if(walk(ax+dx,ay+dy)&&map[idx(ax+dx,ay+dy)]!==2){px=ax+dx;py=ay+dy;break}}
   player.x=px+.5;player.y=py+.5;
-  // arrival duct is known the moment you step through — vessel fog memory alone often left it blank
-  if(arr)explored[arr.i]=1;
-  for(const e of exits){const ex=e.i%MW,ey=(e.i/MW)|0;if(Math.hypot(ex+.5-player.x,ey+.5-player.y)<8)explored[e.i]=explored[e.i]||1}
-  // idleT must reset — otherwise idle TRAVEL unlock fires on the arrival duct and hops straight back
+  // every duct is known on entry — fog used to hide onward exits so Wayfarer saw only the return ("no known duct")
+  for(const e of exits)explored[e.i]=explored[e.i]||1;
+  // idleT / pendingTravel must reset — otherwise arrival duct boards straight back out
+  pendingTravel=null;
   Object.assign(player,{intent:null,path:null,exT:null,busy:null,wT:null,lastAttacker:null,hidden:false,anchor:null,focus:{},bad:new Map(),siteT:0,idleT:0,travelTo:null});
   rebuildEnv();
   if(!s.dunPowered){for(const i of conduitList)POWER[i]=s.res.power;for(const i of WALKS){let e=0;const x=i%MW,y=(i/MW)|0;if(hash(x>>2,y>>2,s.seed)<s.res.echo*.5)e=.15+R()*.3;ECHO[i]=Math.max(ECHO[i],e)}s.dunPowered=1}
@@ -5226,7 +5535,7 @@ function enterSite(id,from,fs){
   log(`  ${assemblyFeel(s)}${(s.A||0)>=6&&(s.phase==='competitive'||s.phase==='colonial'||s.phase==='complex')?' The residue is ready to stir.':''}`,'dim');
   if(s.civ)log(`  ${s.civ.name} lives here${s.civ.grudge>0?', and holds a grudge against you':civAggressive(s.civ)?', and guards its ground':''}. Their ideas: ${[...s.civ.memes.keys()].map(t=>TH[t].n).join(', ')}.`,'dim');
   if(s.ruins.length)log(`  Ruins of ${s.ruins.map(r=>r.name).join(', ')}.`,'dim');
-  if(!lvlCanvas)renderLevel();if(s.dun)s.dun.lvlCanvas=lvlCanvas;
+  if(!lvlCanvas||lvlCanvas.width!==MW*TS)renderLevel();if(s.dun)s.dun.lvlCanvas=lvlCanvas;
   unlockEmptyFeeds();scheduleCampaignSave();
 }
 function farTile(){for(let t=0;t<150;t++){const x=RI(1,MW-2),y=RI(1,MH-2),i=idx(x,y);if(!walk(x,y)||map[i]===2||vis[i])continue;if(player&&Math.hypot(x+.5-player.x,y+.5-player.y)<10)continue;return[x,y]}return null}
@@ -5240,6 +5549,10 @@ function leaveSite(){if(!RG||!RG.inside)return;const s=RG.sites[RG.cur];syncSite
   s.dun.objs=objs.filter(o=>!(o.k==='art'&&!o.inscribed)&&!(o.k==='item'&&o.it.bait));s.dun.lights=lights;s.dun.slick=slick;flushCurDun();RG.inside=false;scheduleCampaignSave()}
 function travel(to){
   const from=RG.cur,fs=followers().filter(f=>Math.hypot(f.x-player.x,f.y-player.y)<10);
+  // fully explored pocket is done forever — no timer that re-opens Cleancorridor loops
+  if(player&&!bfs(player.x|0,player.y|0,i=>unexploredFor(player,i)&&!isBad(player,'t'+i),480))markSiteDone(from);
+  // short return ban only (ascent never blocked)
+  RG.hopBan={id:from,until:gameTime+14};
   RG.prev=from;leaveSite();log(`${player.comp.name} takes the duct to ${RG.sites[to].name}.`,'acc');enterSite(to,from,fs);
 }
 function hsl2hex(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return'#'+[f(0),f(8),f(4)].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('')}
@@ -5508,7 +5821,7 @@ function saveCampaignBlob(opts){
     const sites=RG.sites.map(s=>{
       const keepDun=!slim||!!(s.dun&&((hot&&hot.has(s.id))||s.id===RG.cur||(s.visited&&(s.lastVisit==null||RG.tick-(s.lastVisit||0)<220))));
       return{id:s.id,x:s.x,y:s.y,nb:s.nb,name:s.name,type:s.type,tier:s.tier,base:s.base,res:s.res,N:s.N,Q:s.Q,S:s.S,F:s.F,
-        sp:s.sp,arts:s.arts,ruins:s.ruins,read:s.read,seed:s.seed,collapseT:s.collapseT,warT:s.warT,phase:s.phase,cx:s.cx,avail:s.avail,reg:s.reg,hold:!!s.hold,
+        sp:s.sp,arts:s.arts,ruins:s.ruins,read:s.read,seed:s.seed,collapseT:s.collapseT,warT:s.warT,phase:s.phase,cx:s.cx,avail:s.avail,reg:s.reg,hold:siteIsHold(s),
         dun:keepDun?serializeSiteDun(s.dun):null,dunPowered:keepDun?(s.dunPowered||0):0,civ:s.civ?s.civ.id:null,km:s.km||null,
         visited:!!s.visited,heardOf:!!s.heardOf,lastVisit:s.lastVisit,marked:s.marked,fallen:s.fallen||[],pulseT:s.pulseT,
         scar:s.scar||0,scarAge:s.scarAge||0,crew:s.crew||0,bloomT:s.bloomT,fallSeed:s.fallSeed||null,fallReg:s.fallReg||null,clearT:s.clearT,newsHot:s.newsHot,
@@ -5522,7 +5835,8 @@ function saveCampaignBlob(opts){
       vessel:serializeActor(p.vessel),followers:(p.followers||[]).map(serializeActor),
       met:[...p.met],crew:[...p.crew]
     })):null;
-    return{ver:2,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:false},
+    return{ver:2,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:false,
+        edgeBan:[...(RG.edgeBan||[])],hopBan:RG.hopBan||null,siteDone:[...(RG.siteDone||[])]},
       cyc,newsId,nextId,gameTime,meta:{best:save.best},settings:Object.assign({},worldSettings,{banned:[...(MpWorld?MpWorld.banned:[])]}),
       players,vessel:player&&!MpWorld?{save:{lib:save.lib,mind:save.mind,src:save.src,best:save.best,newT:[...(save.newT||[])]},
         vmem:serializeVmem(vmem),heardN:[...heardN],scanned:[...scanned],tileFeed:[...tileFeed],stats,depth,
@@ -5544,8 +5858,10 @@ function loadCampaignBlob(raw){
       if(s.km)site.km=s.km;return site;
     });
     RG={sites,start:raw.RG.start,cur:raw.RG.cur,prev:raw.RG.prev,tick:raw.RG.tick||0,civs:[...civById.values()],
-      crit:raw.RG.crit||0,news:raw.RG.news||[],events:[],flowIn:[],flowOut:[],inside:false};
+      crit:raw.RG.crit||0,news:raw.RG.news||[],events:[],flowIn:[],flowOut:[],inside:false,
+      edgeBan:new Map(raw.RG.edgeBan||[]),hopBan:raw.RG.hopBan||null,siteDone:new Set(raw.RG.siteDone||[])};
     for(const s of RG.sites)ensureSiteHold(s);
+    ensureRegionConnected();
     MpWorld=null;ensureMP();
     if(raw.settings&&raw.settings.banned)for(const b of raw.settings.banned)MpWorld.banned.add(b);
     if(raw.players&&raw.players.length){
@@ -5687,6 +6003,8 @@ function updActor(a,dt){
   if(a.thinkT<=0){a.thinkT=a===player?.25:(Math.hypot(a.x-player.x,a.y-player.y)>22?1:.35);
     if(a.scared>0&&a!==player){const t=fleeTarget(a,[player]);a.intent=t>=0?{tile:t,range:.3,v:'FLEE',th:null,lab:'fear'}:null}
     else a.intent=think(a);
+    // idle on a duct tile boards the moment a ban lifts — step off while silent
+    if(a===player&&!a.intent){const off=stepOffDuct(a);if(off)a.intent=off}
     a.path=null;a.repath=true}
   const it=a.intent;if(!it)return;
   let tx,ty;
@@ -5726,11 +6044,17 @@ function updActor(a,dt){
   else{
     // do not markBad on the first failed repath — give a short retry window (crates / footprint jostle)
     a.stillT=(a.stillT||0)+dt;a.repath=true;
-    if(a.stillT>1.2){a.stillT=0;if(it.act!=='travel')markBad(a,it);a.intent=null;a.thinkT=0;if(it.v==='EXPLORE')a.exT=null}
+    if(a.stillT>1.2){a.stillT=0;if(it.act!=='travel'&&it.v!=='TRAVEL')markBad(a,it);if(it.v==='TRAVEL')a.travelTo=null;a.intent=null;a.thinkT=0;if(it.v==='EXPLORE')a.exT=null}
     return;
   }
   const ox=a.x,oy=a.y;moveToward(a,mx,my,dt*(it.slow||1));
-  if(Math.abs(a.x-ox)+Math.abs(a.y-oy)<.002){a.stillT=(a.stillT||0)+dt;if(a.stillT>4){a.stillT=0;if(it.act!=='travel')markBad(a,it);a.intent=null;a.thinkT=0;return}}else a.stillT=0;
+  // stepped onto the named duct mid-walk — board without waiting for range check next frame
+  if(a===player&&it.v==='TRAVEL'&&it.to!=null){
+    const i=idx(a.x|0,a.y|0);
+    const e=exits.find(x=>x.to===it.to&&x.i===i&&!(sealMap&&sealMap[x.i]));
+    if(e&&boardTravel(it.to)){a.intent=null;a.stillT=0;return}
+  }
+  if(Math.abs(a.x-ox)+Math.abs(a.y-oy)<.002){a.stillT=(a.stillT||0)+dt;if(a.stillT>4){a.stillT=0;if(it.act!=='travel'&&it.v!=='TRAVEL')markBad(a,it);if(it.v==='TRAVEL')a.travelTo=null;a.intent=null;a.thinkT=0;return}}else a.stillT=0;
   // snares catch anything that is not their maker's
   if(a!==player&&!a.follower&&snareMap){const i=idx(a.x|0,a.y|0);if(snareMap[i]){const o=objs.find(o=>o.sub==='snare'&&o.x===(a.x|0)&&o.y===(a.y|0));
     if(o){a.stuck=2.5;emit(a.x*TS,a.y*TS,10,['#c8c8c8','#9c6c3c'],40,.4);if(vis[i])log(`${aname(a)} is caught in a snare.`,'ok');bark(a,'snared!','bad');o.uses--;if(o.uses<=0){removeObj(o);snareMap[i]=0}hurt(a,4+Math.round(depth/2),o.mine?player:'a snare',false)}else snareMap[i]=0}}
@@ -5860,21 +6184,45 @@ function updFx(dt){
 
 // ================================================================ pose (Rain World–lite chunk chains)
 // Cosmetic only: sim position stays on a.x/a.y. Templates: snake/biped/quad/crab/blob/bug/flyer/plant/mass/brute.
+// ×4 reauthor: keep POSE_FN / poseDraw*; species get SPR mass underlay + per-species thick/sep so they don't clone.
 const BODY={
-  snake:{n:5,sep:2.15,thick:[2,2,2,1,1]},
-  biped:{n:5,sep:2.8,thick:[1,1,2,0,0]},
-  skel:{n:5,sep:2.8,thick:[0,0,1,0,0]},
-  quad:{n:6,sep:2.8,thick:[2,1,0,0,0,0]},
+  snake:{n:5,sep:2.15,thick:[3,3,2,2,1]},
+  biped:{n:5,sep:2.8,thick:[2,2,3,1,1]},
+  skel:{n:5,sep:2.8,thick:[1,1,2,0,0]},
+  quad:{n:6,sep:2.8,thick:[3,2,1,1,1,1]},
   // body, Lclaw, Rclaw, FL, FR, BL, BR — claws must stay outside the carapace
-  crab:{n:7,sep:3.2,thick:[2,1,1,0,0,0,0]},
-  blob:{n:4,sep:2.2,thick:[2,2,1,1]},
+  crab:{n:7,sep:3.2,thick:[3,2,2,1,1,1,1]},
+  blob:{n:4,sep:2.2,thick:[3,3,2,2]},
   // body, head, FL, FR, BL, BR
-  bug:{n:6,sep:2.6,thick:[1,1,0,0,0,0]},
-  flyer:{n:4,sep:2.4,thick:[2,1,1,0]},
-  plant:{n:3,sep:2.3,thick:[1,2,2]},
-  mass:{n:7,sep:3.2,thick:[3,3,3,2,2,2,2]},
-  brute:{n:6,sep:2.9,thick:[3,2,2,1,1,1]}
+  bug:{n:6,sep:2.6,thick:[2,2,1,1,1,1]},
+  flyer:{n:4,sep:2.4,thick:[3,2,2,1]},
+  plant:{n:3,sep:2.3,thick:[2,3,3]},
+  mass:{n:7,sep:3.2,thick:[4,4,3,3,3,2,2]},
+  brute:{n:6,sep:2.9,thick:[4,3,3,2,2,2]}
 };
+// Per-species pose weight — stops every crab/bug/biped reading as the same stick.
+function poseProfile(sp,kind){
+  let h=2166136261;for(let i=0;i<sp.length;i++)h=Math.imul(h^sp.charCodeAt(i),16777619);
+  const u=((h>>>0)%1000)/1000,v=((h>>>10)%1000)/1000;
+  const KIND_BASE={snake:{sep:1,th:1.2,add:1},biped:{sep:1,th:1.25,add:1},skel:{sep:1.05,th:.85,add:0},quad:{sep:1.05,th:1.3,add:1},
+    crab:{sep:1.02,th:1.4,add:1},blob:{sep:1.1,th:1.35,add:1},bug:{sep:.96,th:1.15,add:1},flyer:{sep:1,th:1.2,add:1},
+    plant:{sep:1.15,th:1.35,add:1},mass:{sep:1.12,th:1.5,add:2},brute:{sep:1.18,th:1.55,add:2}};
+  const SPEC={
+    Crab:{sep:1.08,th:1.55,add:1},Kilncrab:{sep:1.05,th:1.6,add:1},Slagcrab:{sep:1.0,th:1.5,add:1},
+    Skeleton:{sep:1.12,th:.9,add:0},Synthetic:{sep:1.06,th:1.45,add:1},Safeguard:{sep:1.22,th:1.7,add:2},Rig:{sep:1.08,th:1.4,add:1},
+    Fishsnake:{sep:.92,th:1.4,add:1},Cablesnake:{sep:.9,th:1.25,add:1},Seepworm:{sep:.95,th:1.35,add:1},
+    Mushroom:{sep:1.28,th:1.55,add:1},Glowcap:{sep:1.32,th:1.6,add:1},Lens:{sep:1.2,th:1.4,add:1},Softlens:{sep:1.18,th:1.35,add:1},
+    Ghost:{sep:1.05,th:1.3,add:0},Spirit:{sep:1.1,th:1.25,add:0},Ectomote:{sep:1.0,th:1.2,add:0},Platonic:{sep:1.0,th:1.35,add:1},
+    Ancestral:{sep:1.06,th:1.4,add:1},Bonehound:{sep:1.1,th:1.45,add:1},Ashhound:{sep:1.12,th:1.5,add:1},Pitdog:{sep:1.08,th:1.4,add:1},
+    Ashmaw:{sep:1.28,th:1.75,add:2},Pressjaw:{sep:1.25,th:1.7,add:2},Gatebrute:{sep:1.3,th:1.8,add:2},
+    Yardmass:{sep:1.2,th:1.85,add:2},Slagheap:{sep:1.18,th:1.8,add:2},Busmass:{sep:1.35,th:1.9,add:2},
+    Glasswing:{sep:1.05,th:1.2,add:0},Quenchfly:{sep:1.0,th:1.25,add:1},Gallerymoth:{sep:1.15,th:1.35,add:1},
+    Vatborn:{sep:1.1,th:1.45,add:1},Sumpmouth:{sep:1.15,th:1.55,add:1}
+  };
+  const b=KIND_BASE[kind]||{sep:1,th:1.25,add:1},o=SPEC[sp];
+  if(o)return o;
+  return{sep:b.sep*(.9+u*.2),th:b.th*(.88+v*.3),add:b.add};
+}
 const POSE_CLASS={
   Skeleton:'skel',
   Fishsnake:'snake',Cablesnake:'snake',Seepworm:'snake',Cairnworm:'snake',
@@ -5899,7 +6247,15 @@ function bodyOf(a){
   const sp=a&&a.comp&&a.comp.species;if(!sp)return null;
   if(a._bodySp===sp)return a._body;
   const kind=poseClass(sp),T=BODY[kind];
-  a._bodySp=sp;a._body=T?{kind,n:T.n,sep:T.sep,thick:T.thick}:null;return a._body;
+  if(!T){a._bodySp=sp;a._body=null;return null}
+  const pr=poseProfile(sp,kind);
+  a._bodySp=sp;a._body={kind,n:T.n,sep:T.sep*pr.sep,thick:T.thick.map(t=>Math.max(0,Math.round(t*pr.th)+pr.add)),thMul:pr.th,thAdd:pr.add};
+  return a._body;
+}
+function poseR(a,r){
+  // Scale hardcoded drawer radii by the species profile (skel/crab/bug ignore BODY.thick arrays).
+  const B=a&&(a._body||bodyOf(a)),mul=B&&B.thMul||1,add=B&&B.thAdd||0;
+  return Math.max(0,Math.round((r|0)*mul+add*.5));
 }
 function poseMode(a){
   const v=a.intent&&a.intent.v;
@@ -5934,10 +6290,11 @@ function ensurePose(a){
     const ch=[],ox=a.x*TS,oy=a.y*TS-3,face=a.face||1;
     for(let i=0;i<B.n;i++)ch.push({x:ox-face*B.sep*i*.3,y:oy+i*.2});
     a.pose={kind:B.kind,ch,sep:B.sep,thick:B.thick.slice()};
-  }
+  }else{a.pose.sep=B.sep;a.pose.thick=B.thick.slice()}
   return a.pose;
 }
 function posePal(a){
+  if(a._poseBake&&a._posePal)return a._posePal;
   if(a.flash>0)return['#f2eee2','#f2eee2','#f2eee2','#f2eee2'];
   const mode=a.faction==='player'?'p':(player&&!wants(a,player)?'n':'h');
   if(a._posePalMode===mode&&a._posePal)return a._posePal;
@@ -6164,13 +6521,52 @@ function poseUpdate(a,dt){
   const fn=POSE_FN[P.kind];if(fn)fn(a,P,dt,poseMotifs(a));
   a._poseFresh=gameTime;
 }
-function poseFillSeg(x0,y0,x1,y1,r,col){
-  // stroke beats per-pixel fillRect stamps (was the pose FPS killer)
-  const dx=x1-x0,dy=y1-y0;if(dx*dx+dy*dy<.35){poseDot(x0,y0,r,col);return}
-  ctx.strokeStyle=col;ctx.lineWidth=Math.max(1,(r|0)*2+1);ctx.lineCap='square';
-  ctx.beginPath();ctx.moveTo((x0+.5)|0,(y0+.5)|0);ctx.lineTo((x1+.5)|0,(y1+.5)|0);ctx.stroke();
+function poseShade(col,k){
+  if(col&&col[0]==='#')return shade(col,k);
+  const m=String(col).match(/\d+/g);if(!m)return col;
+  return`rgb(${Math.min(255,(+m[0])*k)|0},${Math.min(255,(+m[1])*k)|0},${Math.min(255,(+m[2])*k)|0})`;
 }
-function poseDot(x,y,r,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x)-r,Math.round(y)-r,r*2+1,r*2+1)}
+// When set, pose strokes paint into this canvas (device space). Used by bakePoseSprite.
+let _poseG=null;
+function poseFillSeg(x0,y0,x1,y1,r,col){
+  // Device strokes: thicker than stick-figure pass, still finer than lw×RES block upres.
+  const dx=x1-x0,dy=y1-y0;if(dx*dx+dy*dy<.35){poseDot(x0,y0,r,col);return}
+  const g=_poseG||ctx,rr=r|0,W=rr<=0?4:rr===1?6:rr===2?9:Math.min(14,rr*3+4);
+  const X0=(x0+.5)*RES,Y0=(y0+.5)*RES,X1=(x1+.5)*RES,Y1=(y1+.5)*RES;
+  if(!_poseG)deviceXform(ctx);
+  g.lineCap='round';g.lineJoin='round';
+  g.strokeStyle=poseShade(col,.55);g.lineWidth=W;
+  g.beginPath();g.moveTo(X0,Y0+1);g.lineTo(X1,Y1+1);g.stroke();
+  g.strokeStyle=col;g.lineWidth=W;
+  g.beginPath();g.moveTo(X0,Y0);g.lineTo(X1,Y1);g.stroke();
+  if(W>=4){g.strokeStyle=poseShade(col,1.3);g.lineWidth=Math.max(1,(W/4)|0);g.beginPath();g.moveTo(X0,Y0-1);g.lineTo(X1,Y1-1);g.stroke()}
+  if(!_poseG)worldXform(ctx);
+}
+function poseDot(x,y,r,col){
+  const g=_poseG||ctx,rr=r|0,rad=rr<=0?2:rr===1?3:rr===2?5:Math.min(9,rr*2+2);
+  const X=Math.round(x*RES),Y=Math.round(y*RES);
+  if(!_poseG)deviceXform(ctx);
+  g.fillStyle=poseShade(col,.55);g.fillRect(X-rad,Y-rad+1,rad*2+1,rad*2);
+  g.fillStyle=col;g.fillRect(X-rad,Y-rad,rad*2+1,rad*2+1);
+  if(rad>=2){g.fillRect(X-rad+1,Y-rad-1,rad*2-1,1);g.fillRect(X-rad+1,Y+rad+1,rad*2-1,1)}
+  g.fillStyle=poseShade(col,1.35);g.fillRect(X-rad,Y-rad,Math.max(1,rad),Math.max(1,rad));
+  if(!_poseG)worldXform(ctx);
+}
+function poseSprMass(a,pal){
+  // Species silhouette under the sticks — SPR mask is what made creatures read apart at 1×.
+  const sp=(a.comp&&a.comp.species||'').toLowerCase(),mask=SPR[sp];if(!mask||!a.pose||!a.pose.ch[0])return;
+  const face=a.face||1,B=a.pose.ch[0],ax=B.x-cam.x,ay=B.y-cam.y,ox=ax-5,oy=ay-6;
+  const g=_poseG||ctx,prev=g.globalAlpha;if(!_poseG)deviceXform(ctx);
+  g.globalAlpha=prev*.88;
+  for(let y=0;y<mask.length;y++)for(let x=0;x<mask[y].length;x++){
+    const k='abce'.indexOf(mask[y][x]);if(k<0||k===3)continue;
+    const col=pal[k===2?0:k],mx=face<0?9-x:x;
+    const X=Math.round((ox+mx)*RES),Y=Math.round((oy+y)*RES),n=k===0?4:k===1?3:3;
+    g.fillStyle=poseShade(col,k===1?.72:1);g.fillRect(X,Y,n,n);
+    if(k===0){g.fillStyle=poseShade(col,1.2);g.fillRect(X,Y,2,2)}
+  }
+  g.globalAlpha=prev;if(!_poseG)worldXform(ctx);
+}
 function poseDrawTube(ch,th,pal,links){
   for(let L=0;L<links.length;L++){
     const i=links[L][0],j=links[L][1];
@@ -6187,20 +6583,22 @@ function poseDrawSkel(a,pal,ch){
   const sx=head.x-cam.x,sy=head.y-cam.y,lx=fl.x-cam.x,ly=fl.y-cam.y,rx=fr.x-cam.x,ry=fr.y-cam.y;
   const klx=(hx+lx)*.5+(side?face*.4:0),kly=(hy+ly)*.5+.6,krx=(hx+rx)*.5-(side?face*.4:0),kry=(hy+ry)*.5+.6;
   const alx=cx-(side?face*3.2:3.2),aly=cy+2.2,arx=cx+(side?face*2.4:2.4),ary=cy+1.6+(a.lunge>0?-1:0);
-  const drawLegL=()=>{poseFillSeg(hx-1,hy,klx,kly,0,bone);poseFillSeg(klx,kly,lx,ly,0,shadeC);poseDot(lx,ly,0,lite)};
-  const drawLegR=()=>{poseFillSeg(hx+1,hy,krx,kry,0,bone);poseFillSeg(krx,kry,rx,ry,0,shadeC);poseDot(rx,ry,0,lite)};
-  const drawArmL=()=>{poseFillSeg(cx-1,cy,alx,aly,0,bone);poseDot(alx,aly,0,lite)};
-  const drawArmR=()=>{poseFillSeg(cx+1,cy,arx,ary,0,bone);poseDot(arx,ary,0,lite)};
+  const r0=poseR(a,0),r1=poseR(a,1),r2=poseR(a,2);
+  const drawLegL=()=>{poseFillSeg(hx-1,hy,klx,kly,r0,bone);poseFillSeg(klx,kly,lx,ly,r0,shadeC);poseDot(lx,ly,r0,lite)};
+  const drawLegR=()=>{poseFillSeg(hx+1,hy,krx,kry,r0,bone);poseFillSeg(krx,kry,rx,ry,r0,shadeC);poseDot(rx,ry,r0,lite)};
+  const drawArmL=()=>{poseFillSeg(cx-1,cy,alx,aly,r0,bone);poseDot(alx,aly,r0,lite)};
+  const drawArmR=()=>{poseFillSeg(cx+1,cy,arx,ary,r0,bone);poseDot(arx,ary,r0,lite)};
   const drawTorso=()=>{
-    poseFillSeg(hx,hy,cx,cy,0,shadeC);poseFillSeg(cx,cy,sx,sy+2,0,bone);
-    for(let i=0;i<3;i++){const yy=cy+i*1.2-1;poseFillSeg(cx-2,yy,cx+2,yy,0,i===1?lite:bone)}
-    poseFillSeg(hx-2,hy,hx+2,hy,0,bone);poseDot(hx,hy,0,lite);
+    poseFillSeg(hx,hy,cx,cy,r0,shadeC);poseFillSeg(cx,cy,sx,sy+1.6,r0,bone);
+    for(let i=0;i<4;i++){const yy=cy-1.2+i*.85;poseFillSeg(cx-1.8,yy,cx+1.8,yy,r0,i===1||i===2?lite:bone)}
+    poseFillSeg(hx-2.2,hy,hx+2.2,hy,r1,bone);poseDot(hx,hy,r0,lite);
   };
   const drawSkull=()=>{
-    poseDot(sx,sy,2,bone);poseDot(sx,sy-1,1,lite);
-    poseDot(sx-1,sy,0,shadeC);poseDot(sx+1,sy,0,shadeC);
-    if(fy>=0)poseDot(sx+(side?face:0),sy+(side?0:1),0,eye);
-    poseFillSeg(sx-1,sy+2,sx+1,sy+2,0,shadeC);
+    poseDot(sx,sy,r2,bone);poseDot(sx,sy-.8,r1,lite);
+    poseDot(sx-1.2,sy,r0,shadeC);poseDot(sx+1.2,sy,r0,shadeC);
+    if(fy>=0)poseDot(sx+(side?face*.9:0),sy+(side?0:.7),r0,eye);
+    poseFillSeg(sx-1.2,sy+1.6,sx+1.2,sy+1.6,r0,shadeC);
+    poseFillSeg(sx-.5,sy+1.6,sx-.5,sy+2.4,r0,bone);poseFillSeg(sx+.5,sy+1.6,sx+.5,sy+2.4,r0,bone);
   };
   if(side){
     // far side first (opposite face), then torso, then near
@@ -6216,57 +6614,61 @@ function poseDrawSkel(a,pal,ch){
   }
 }
 function poseDrawCrab(a,pal,ch){
-  // ch: body, Lclaw, Rclaw, FL, FR, BL, BR — SPR.crab silhouette: high corner claws, wide shell, splayed feet
+  // ch: body, Lclaw, Rclaw, FL, FR, BL, BR — articulated legs + heavy plated shell
   const shell=pal[0],shadeC=pal[1],lite=pal[2],eye=pal[3];
-  const B=ch[0],bx=Math.round(B.x-cam.x),by=Math.round(B.y-cam.y);
-  // feet far to the sides (scuttle stance)
+  const B=ch[0],bx=B.x-cam.x,by=B.y-cam.y,r0=poseR(a,0),r1=poseR(a,1),r2=poseR(a,2);
   for(let i=3;i<7;i++){
-    const f=ch[i],fx=Math.round(f.x-cam.x),fy=Math.round(f.y-cam.y),side=i%2?1:-1;
-    const mx=Math.round(bx+side*3.5),my=Math.round(by+2);
-    poseFillSeg(bx+side*2,by+1,mx,my,0,shadeC);poseFillSeg(mx,my,fx,fy,0,shell);poseDot(fx,fy,0,lite);
+    const f=ch[i],fx=f.x-cam.x,fy=f.y-cam.y,side=i%2?1:-1;
+    const hx=bx+side*2.2,hy=by+1.2,kx=bx+side*3.6,ky=by+2.4;
+    poseFillSeg(bx+side*1.2,by+.6,hx,hy,r0,shadeC);
+    poseFillSeg(hx,hy,kx,ky,r0,shell);
+    poseFillSeg(kx,ky,fx,fy,r0,shell);
+    poseDot(fx,fy,r0,lite);
   }
-  // wide shell rows (carapace)
-  poseFillSeg(bx-4,by,bx+4,by,0,shell);poseFillSeg(bx-3,by-1,bx+3,by-1,0,shell);
-  poseFillSeg(bx-4,by+1,bx+4,by+1,0,shadeC);poseFillSeg(bx-2,by-2,bx+2,by-2,0,lite);
-  poseDot(bx-1,by-1,0,eye);poseDot(bx+1,by-1,0,eye);
-  // corner claws with open pincers
+  poseFillSeg(bx-4.2,by+.3,bx+4.2,by+.3,r2,shadeC);
+  poseFillSeg(bx-3.8,by,bx+3.8,by,r2,shell);
+  poseFillSeg(bx-3.2,by-.7,bx+3.2,by-.7,r1,shell);
+  poseFillSeg(bx-2.4,by-1.4,bx+2.4,by-1.4,r1,lite);
+  poseFillSeg(bx-1.6,by+.9,bx+1.6,by+.9,r1,shadeC);
+  poseDot(bx-1.1,by-.6,r0,eye);poseDot(bx+1.1,by-.6,r0,eye);
   for(const ci of[1,2]){
-    const C=ch[ci],cx=Math.round(C.x-cam.x),cy=Math.round(C.y-cam.y),side=ci===1?-1:1;
-    poseFillSeg(bx+side*3,by-1,cx-side,cy+1,0,shadeC);
-    poseFillSeg(cx-side,cy+1,cx,cy,0,shell);
-    poseDot(cx,cy,1,shell);
-    poseDot(cx+side,cy-1,0,lite);poseDot(cx+side*2,cy,0,lite);poseDot(cx+side,cy+1,0,lite);
+    const C=ch[ci],cx=C.x-cam.x,cy=C.y-cam.y,side=ci===1?-1:1;
+    const mx=bx+side*3.2,my=by-1.1;
+    poseFillSeg(bx+side*2.4,by-.4,mx,my,r1,shadeC);
+    poseFillSeg(mx,my,cx-side*.4,cy+.3,r1,shell);
+    poseDot(cx,cy,r1,shell);
+    poseFillSeg(cx,cy,cx+side*1.6,cy-1.1,r0,lite);
+    poseFillSeg(cx,cy,cx+side*1.8,cy+.2,r0,lite);
+    poseFillSeg(cx,cy,cx+side*1.2,cy+1.1,r0,shadeC);
   }
 }
 function poseDrawBug(a,pal,ch){
   // ch: body, head, FL, FR, BL, BR — far legs first; head under body when facing up
   const shell=pal[0],shadeC=pal[1],lite=pal[2],eye=pal[3],face=a.face||1,fy=a.faceY||0,side=!fy;
-  const B=ch[0],H=ch[1],bx=Math.round(B.x-cam.x),by=Math.round(B.y-cam.y),hx=Math.round(H.x-cam.x),hy=Math.round(H.y-cam.y);
+  const B=ch[0],H=ch[1],bx=B.x-cam.x,by=B.y-cam.y,hx=H.x-cam.x,hy=H.y-cam.y,r0=poseR(a,0),r1=poseR(a,1);
   const drawLeg=i=>{
-    const f=ch[i],fx=Math.round(f.x-cam.x),fyP=Math.round(f.y-cam.y);
-    const mx=Math.round((bx+fx)*.5),my=Math.round((by+fyP)*.5+1);
-    poseFillSeg(bx,by+1,mx,my,0,shadeC);poseFillSeg(mx,my,fx,fyP,0,shell);poseDot(fx,fyP,0,lite);
+    const f=ch[i],fx=f.x-cam.x,fyP=f.y-cam.y;
+    const mx=(bx+fx)*.5,my=(by+fyP)*.5+1;
+    poseFillSeg(bx,by+1,mx,my,r0,shadeC);poseFillSeg(mx,my,fx,fyP,r0,shell);poseDot(fx,fyP,r0,lite);
   };
   const drawBodyHead=()=>{
     if(side){
-      poseFillSeg(bx-face*2,by,bx+face,by,1,shell);poseDot(bx-face*2,by,1,shadeC);
-      poseFillSeg(bx,by,hx,hy,0,shell);poseDot(hx,hy,1,shell);poseDot(hx+face,hy,0,eye);
-      poseFillSeg(hx,hy-1,hx+face*3,hy-4,0,lite);poseFillSeg(hx,hy-1,hx+face*2,hy-4,0,lite);
+      poseFillSeg(bx-face*2,by,bx+face,by,r1,shell);poseDot(bx-face*2,by,r1,shadeC);
+      poseFillSeg(bx,by,hx,hy,r0,shell);poseDot(hx,hy,r1,shell);poseDot(hx+face,hy,r0,eye);
+      poseFillSeg(hx,hy-1,hx+face*3,hy-4,r0,lite);poseFillSeg(hx,hy-1,hx+face*2,hy-4,r0,lite);
     }else{
-      poseFillSeg(bx,by-fy*2,bx,by+fy,1,shell);poseDot(bx,by-fy*2,1,shadeC);
-      poseFillSeg(bx,by,hx,hy,0,shell);poseDot(hx,hy,1,shell);
-      if(fy>0)poseDot(hx,hy+1,0,eye);
-      poseFillSeg(hx-1,hy,hx-1,hy+fy*3,0,lite);poseFillSeg(hx+1,hy,hx+1,hy+fy*3,0,lite);
+      poseFillSeg(bx,by-fy*2,bx,by+fy,r1,shell);poseDot(bx,by-fy*2,r1,shadeC);
+      poseFillSeg(bx,by,hx,hy,r0,shell);poseDot(hx,hy,r1,shell);
+      if(fy>0)poseDot(hx,hy+1,r0,eye);
+      poseFillSeg(hx-1,hy,hx-1,hy+fy*3,r0,lite);poseFillSeg(hx+1,hy,hx+1,hy+fy*3,r0,lite);
     }
   };
-  // legs: far lateral first when side
   const order=side?(face>0?[2,4,3,5]:[3,5,2,4]):[2,3,4,5];
   if(fy<0&&!side){
-    // head under body mass when facing up
-    poseFillSeg(bx,by,hx,hy,0,shell);poseDot(hx,hy,1,shell);
-    poseFillSeg(hx-1,hy,hx-1,hy+fy*3,0,lite);poseFillSeg(hx+1,hy,hx+1,hy+fy*3,0,lite);
+    poseFillSeg(bx,by,hx,hy,r0,shell);poseDot(hx,hy,r1,shell);
+    poseFillSeg(hx-1,hy,hx-1,hy+fy*3,r0,lite);poseFillSeg(hx+1,hy,hx+1,hy+fy*3,r0,lite);
     for(const i of order)drawLeg(i);
-    poseFillSeg(bx,by-fy*2,bx,by+fy,1,shell);poseDot(bx,by-fy*2,1,shadeC);
+    poseFillSeg(bx,by-fy*2,bx,by+fy,r1,shell);poseDot(bx,by-fy*2,r1,shadeC);
   }else{
     for(const i of order)drawLeg(i);
     drawBodyHead();
@@ -6275,49 +6677,50 @@ function poseDrawBug(a,pal,ch){
 function poseDrawQuad(a,pal,ch){
   // ch: hip, snout, FL, FR, BL, BR — far legs first; snout under body when facing up
   const coat=pal[0],shadeC=pal[1],lite=pal[2],eye=pal[3],face=a.face||1,fy=a.faceY||0,side=!fy;
-  const hip=ch[0],sn=ch[1],hx=Math.round(hip.x-cam.x),hy=Math.round(hip.y-cam.y),sx=Math.round(sn.x-cam.x),sy=Math.round(sn.y-cam.y);
+  const hip=ch[0],sn=ch[1],hx=hip.x-cam.x,hy=hip.y-cam.y,sx=sn.x-cam.x,sy=sn.y-cam.y,r0=poseR(a,0),r1=poseR(a,1),r2=poseR(a,2);
   const drawLeg=i=>{
-    const f=ch[i],fx=Math.round(f.x-cam.x),fyP=Math.round(f.y-cam.y);
-    const kx=Math.round((hx+fx)*.5+(side?face*(i%2?-0.5:0.5):0)),ky=Math.round((hy+fyP)*.5);
-    poseFillSeg(hx,hy+1,kx,ky,0,shadeC);poseFillSeg(kx,ky,fx,fyP,0,coat);poseDot(fx,fyP,0,lite);
+    const f=ch[i],fx=f.x-cam.x,fyP=f.y-cam.y;
+    const kx=(hx+fx)*.5+(side?face*(i%2?-0.5:0.5):0),ky=(hy+fyP)*.5;
+    poseFillSeg(hx,hy+1,kx,ky,r0,shadeC);poseFillSeg(kx,ky,fx,fyP,r0,coat);poseDot(fx,fyP,r0,lite);
   };
   const drawHead=()=>{
-    poseDot(sx,sy,1,coat);
-    if(fy>=0)poseDot(sx+(side?face:0),sy-(side?1:0)+(side?0:1),0,eye);
-    if(side)poseFillSeg(sx,sy+1,sx+face*2,sy+1,0,lite);else poseFillSeg(sx-1,sy+fy,sx+1,sy+fy,0,lite);
+    poseDot(sx,sy,r1,coat);
+    if(fy>=0)poseDot(sx+(side?face:0),sy-(side?1:0)+(side?0:1),r0,eye);
+    if(side)poseFillSeg(sx,sy+1,sx+face*2,sy+1,r0,lite);else poseFillSeg(sx-1,sy+fy,sx+1,sy+fy,r0,lite);
   };
   const order=side?(face>0?[2,4,3,5]:[3,5,2,4]):[2,3,4,5];
   if(fy<0&&!side){
-    poseFillSeg(hx,hy,sx,sy,1,coat);drawHead();
+    poseFillSeg(hx,hy,sx,sy,r1,coat);drawHead();
     for(const i of order)drawLeg(i);
-    poseDot(hx,hy,2,shadeC);
+    poseDot(hx,hy,r2,shadeC);
   }else{
     for(const i of order)drawLeg(i);
-    poseFillSeg(hx-(side?face:0),hy,sx,sy,1,coat);poseDot(hx,hy,2,shadeC);
+    poseFillSeg(hx-(side?face:0),hy,sx,sy,r1,coat);poseDot(hx,hy,r2,shadeC);
     drawHead();
   }
 }
 function poseDrawFlyer(a,pal,ch){
   const body=pal[0],shadeC=pal[1],lite=pal[2],eye=pal[3],face=a.face||1,fy=a.faceY||0,side=!fy;
-  const B=ch[0],L=ch[1],R=ch[2],T=ch[3];
+  const B=ch[0],L=ch[1],R=ch[2],T=ch[3],r0=poseR(a,0),r1=poseR(a,1),r2=poseR(a,2);
   const bx=B.x-cam.x,by=B.y-cam.y,lx=L.x-cam.x,ly=L.y-cam.y,rx=R.x-cam.x,ry=R.y-cam.y,tx=T.x-cam.x,ty=T.y-cam.y;
-  // wings → abdomen tip → body (tip stays under mass; facing up keeps same occlusion)
-  poseFillSeg(bx,by,lx,ly,1,lite);poseFillSeg(bx,by,rx,ry,1,lite);
-  poseDot(lx,ly,1,shadeC);poseDot(rx,ry,1,shadeC);
-  poseFillSeg(bx,by,tx,ty,0,shadeC);
-  poseDot(bx,by,2,body);
-  if(fy>=0)poseDot(bx+(side?face:0),by+(side?0:1),0,eye);
+  poseFillSeg(bx,by,lx,ly,r1,lite);poseFillSeg(bx,by,rx,ry,r1,lite);
+  poseDot(lx,ly,r1,shadeC);poseDot(rx,ry,r1,shadeC);
+  poseFillSeg(bx,by,tx,ty,r0,shadeC);
+  poseDot(bx,by,r2,body);
+  if(fy>=0)poseDot(bx+(side?face:0),by+(side?0:1),r0,eye);
 }
 function poseDraw(a,sx,sy,t){
   const P=a.pose;if(!P||!P.ch||!P.ch.length)return false;
-  const pal=posePal(a),ch=P.ch,th=P.thick,kind=P.kind;
-  const fade=(a.comp.species==='Ghost'||a.comp.species==='Spirit'||kind==='blob')?.55+.25*Math.sin(t*3+a.id):a.asleep?.7:1;
-  ctx.save();ctx.globalAlpha=(a.hidden?.45:1)*fade;
-  if(kind==='skel'){poseDrawSkel(a,pal,ch);ctx.restore();return true}
-  if(kind==='crab'){poseDrawCrab(a,pal,ch);ctx.restore();return true}
-  if(kind==='bug'){poseDrawBug(a,pal,ch);ctx.restore();return true}
-  if(kind==='quad'){poseDrawQuad(a,pal,ch);ctx.restore();return true}
-  if(kind==='flyer'){poseDrawFlyer(a,pal,ch);ctx.restore();return true}
+  const pal=posePal(a),ch=P.ch,th=P.thick,kind=P.kind,g=_poseG||ctx;
+  const fade=a._poseBake?1:(a.comp.species==='Ghost'||a.comp.species==='Spirit'||kind==='blob')?.55+.25*Math.sin(t*3+a.id):a.asleep?.7:1;
+  g.save();g.globalAlpha=(a.hidden?.45:1)*fade;
+  // SPR mass first so species silhouettes read; sticks articulate on top
+  if(kind!=='skel')poseSprMass(a,pal);
+  if(kind==='skel'){poseDrawSkel(a,pal,ch);g.restore();return true}
+  if(kind==='crab'){poseDrawCrab(a,pal,ch);g.restore();return true}
+  if(kind==='bug'){poseDrawBug(a,pal,ch);g.restore();return true}
+  if(kind==='quad'){poseDrawQuad(a,pal,ch);g.restore();return true}
+  if(kind==='flyer'){poseDrawFlyer(a,pal,ch);g.restore();return true}
   let links,feetFirst=null;
   if(kind==='snake')links=[[0,1],[1,2],[2,3],[3,4]];
   else if(kind==='biped'){feetFirst=[[0,3],[0,4]];links=[[0,1],[1,2]]}
@@ -6335,8 +6738,27 @@ function poseDraw(a,sx,sy,t){
   poseDot(hx,hy,hr,pal[0]);
   {const fy=a.faceY||0,side=!fy;
     if(fy>=0)poseDot(hx+(side?(a.face<0?-hr:hr):0),hy-(kind==='plant'?1:0)+(side?0:fy*hr),0,pal[3])}
-  ctx.restore();
+  g.restore();
   return true;
+}
+function bakePoseSprite(sp,mode){
+  // Off-camera SPR = rest-pose bake of the same stroke reauthor (not mask block-upres).
+  const kind=poseClass(sp),T=BODY[kind];if(!T)return null;
+  const c=document.createElement('canvas');c.width=SS;c.height=SS;const g=c.getContext('2d');
+  g.imageSmoothingEnabled=false;g.clearRect(0,0,SS,SS);
+  const base=(SPECIES[sp]&&SPECIES[sp].pal)||['#888','#444','#bbb','#fff'];
+  const a={comp:{species:sp},face:1,faceY:0,x:.5,y:.5,id:0,flash:0,faction:mode==='h'?'wild':'player',
+    lunge:0,walkT:0,asleep:false,hidden:0,intent:null,busy:null,scared:0,stuck:0,energy:80,
+    _poseBake:1,_posePal:sprModePal(base,mode),_posePalMode:mode,_body:null,_bodySp:null,pose:null};
+  const ox=5,oy=6;a.x=ox/TS;a.y=(oy+3)/TS;
+  const P=ensurePose(a);if(!P)return null;
+  const fn=POSE_FN[kind],M={mode:'idle',moving:false,scramble:1,limp:false,bob:0,lean:0,face:1,faceY:0,side:true,rx:ox,ry:oy};
+  if(fn)for(let i=0;i<10;i++)fn(a,P,.25,M);
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;for(const p of P.ch){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)}
+  const sx=5-(minX+maxX)*.5,sy=5.2-(minY+maxY)*.5;for(const p of P.ch){p.x+=sx;p.y+=sy}
+  const oldCam={x:cam.x,y:cam.y};cam.x=0;cam.y=0;_poseG=g;
+  try{poseDraw(a,5,8,0)}finally{_poseG=null;cam.x=oldCam.x;cam.y=oldCam.y}
+  return c;
 }
 
 // ================================================================ render
@@ -6344,12 +6766,14 @@ const _visActors=[];
 // Scene draws to an offscreen canvas (GPU). #cv is present-only — avoids willReadFrequently
 // software path that made the whole frame crawl when dither was on.
 const cv=$('cv');
-const sceneCv=document.createElement('canvas');sceneCv.width=VW;sceneCv.height=VH;
+const sceneCv=document.createElement('canvas');sceneCv.width=SRW;sceneCv.height=SRH;
 const ctx=sceneCv.getContext('2d');ctx.imageSmoothingEnabled=false;
-const lightCv=document.createElement('canvas');lightCv.width=VW;lightCv.height=VH;const lctx=lightCv.getContext('2d');
-const softSpot=(()=>{const c=document.createElement('canvas');c.width=64;c.height=64;const g=c.getContext('2d');if(!g)return c;
-  const grd=g.createRadialGradient(32,32,0,32,32,32);grd.addColorStop(0,'rgba(255,255,255,1)');grd.addColorStop(.5,'rgba(255,255,255,.8)');grd.addColorStop(1,'rgba(255,255,255,0)');
-  g.fillStyle=grd;g.fillRect(0,0,64,64);return c})();
+const lightCv=document.createElement('canvas');lightCv.width=SRW;lightCv.height=SRH;const lctx=lightCv.getContext('2d');lctx.imageSmoothingEnabled=false;
+function worldXform(c){c.setTransform(RES,0,0,RES,0,0);c.imageSmoothingEnabled=false}
+function deviceXform(c){c.setTransform(1,0,0,1,0,0);c.imageSmoothingEnabled=false}
+const softSpot=(()=>{const N=64*RES,c=document.createElement('canvas');c.width=N;c.height=N;const g=c.getContext('2d');if(!g)return c;
+  const mid=N/2,grd=g.createRadialGradient(mid,mid,0,mid,mid,mid);grd.addColorStop(0,'rgba(255,255,255,1)');grd.addColorStop(.45,'rgba(255,255,255,.85)');grd.addColorStop(.75,'rgba(255,255,255,.35)');grd.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=grd;g.fillRect(0,0,N,N);return c})();
 // ordered-dither threshold matrices: 2x2, 4x4, 8x8 (recursive Bayer)
 function bayerM(n){let m=[[0]];while(m.length<n){const k=m.length,M=[];for(let y=0;y<k*2;y++){M.push([]);for(let x=0;x<k*2;x++)M[y].push(4*m[y%k][x%k]+[0,2,3,1][(y<k?0:2)+(x<k?0:1)])}m=M}return m.flat().map(v=>(v+.5)/(n*n))}
 const BAYERS={2:bayerM(2),4:bayerM(4),8:bayerM(8)};
@@ -6381,7 +6805,7 @@ function setupDitherGL(gl){
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
   const b8=BAYERS[8],pix=new Uint8Array(8*8);for(let i=0;i<64;i++)pix[i]=(b8[i]*255)|0;
   gl.texImage2D(gl.TEXTURE_2D,0,gl.LUMINANCE,8,8,0,gl.LUMINANCE,gl.UNSIGNED_BYTE,pix);
-  gl.viewport(0,0,VW,VH);gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);return true;
+  gl.viewport(0,0,SRW,SRH);gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);return true;
 }
 function initPresent(){
   if(_presentInited)return;_presentInited=true;
@@ -6393,7 +6817,8 @@ function initPresent(){
   _disp2d=cv.getContext('2d',{alpha:false});if(_disp2d)_disp2d.imageSmoothingEnabled=false;
 }
 function presentGL(){
-  const gl=_gl,p=_glProg;gl.useProgram(p);
+  const gl=_gl,p=_glProg;gl.useProgram(p);deviceXform(ctx);
+  gl.viewport(0,0,SRW,SRH);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,_glTex);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,sceneCv);
   let bn=DBG.matrix|0;if(bn!==2&&bn!==4&&bn!==8)bn=8;
@@ -6410,10 +6835,11 @@ function presentGL(){
 }
 function presentCPU(){
   if(!_disp2d)return;
+  deviceXform(ctx);
   if(!ditherOn){_disp2d.drawImage(sceneCv,0,0);return}
-  if(!_ditherIm)_ditherIm=ctx.createImageData(VW,VH);
-  const im=ctx.getImageData(0,0,VW,VH),d=im.data,Lm=Math.max(1,(DBG.levels|0)-1),k=255/Lm,n=DBG.matrix|0,B=BAYERS[n],st=+DBG.strength||0,mono=DBG.mono;
-  for(let y=0;y<VH;y++)for(let x=0;x<VW;x++){const th=B?.5+(B[(x%n)+(y%n)*n]-.5)*st:.5,i=(y*VW+x)*4;
+  if(!_ditherIm||_ditherIm.width!==SRW)_ditherIm=ctx.createImageData(SRW,SRH);
+  const im=ctx.getImageData(0,0,SRW,SRH),d=im.data,Lm=Math.max(1,(DBG.levels|0)-1),k=255/Lm,n=DBG.matrix|0,B=BAYERS[n],st=+DBG.strength||0,mono=DBG.mono;
+  for(let y=0;y<SRH;y++)for(let x=0;x<SRW;x++){const th=B?.5+(B[(x%n)+(y%n)*n]-.5)*st:.5,i=(y*SRW+x)*4;
     if(mono){const v=(d[i]*.3+d[i+1]*.59+d[i+2]*.11)*Lm/255,f=v|0,o=((v-f>th)?f+1:f)*k;d[i]=d[i+1]=d[i+2]=o}
     else for(let c=0;c<3;c++){const v=d[i+c]*Lm/255,f=v|0;d[i+c]=((v-f>th)?f+1:f)*k}}
   _disp2d.putImageData(im,0,0);
@@ -6425,8 +6851,20 @@ function presentFrame(){
 }
 const FONT={'0':'111101101101111','1':'010110010010111','2':'111001111100111','3':'111001111001111','4':'101101111001001','5':'111100111001111','6':'111100111101111','7':'111001001001001','8':'111101111101111','9':'111101111001111','!':'010010010000010','+':'000010111010000','M':'101111111101101','I':'111010010010111','S':'111100111001111'};
 function ptext(str,x,y,col){
+  // Reauthor at device pixels: each 3×5 cell is RES×RES with a light bevel.
   x=Math.round(x-str.length*2);y=Math.round(y);
-  for(const ch of str){const f=FONT[ch];if(f)for(let i=0;i<15;i++)if(f[i]==='1'){const px=x+i%3,py=y+((i/3)|0);ctx.fillStyle='#000';ctx.fillRect(px+1,py+1,1,1);ctx.fillStyle=col;ctx.fillRect(px,py,1,1)}x+=4}
+  deviceXform(ctx);
+  let X=x*RES;const Y=y*RES,S=RES,rgb=col[0]==='#'?hex(col):null;
+  for(const ch of str){const f=FONT[ch];if(f)for(let i=0;i<15;i++)if(f[i]==='1'){
+    const cx=X+(i%3)*S,cy=Y+((i/3)|0)*S;
+    ctx.fillStyle='#000';ctx.fillRect(cx+S,cy+S,S,S);
+    for(let dy=0;dy<S;dy++)for(let dx=0;dx<S;dx++){
+      const m=dx===0||dy===0?1.1:dx===S-1||dy===S-1?.85:1;
+      ctx.fillStyle=rgb?`rgb(${Math.min(255,rgb[0]*m)|0},${Math.min(255,rgb[1]*m)|0},${Math.min(255,rgb[2]*m)|0})`:col;
+      ctx.fillRect(cx+dx,cy+dy,1,1);
+    }
+  }X+=4*S}
+  worldXform(ctx);
 }
 function drawObj(o,sx,sy,t,g){
   g=g||ctx;
@@ -6440,7 +6878,7 @@ function drawObj(o,sx,sy,t,g){
     else{g.fillStyle=st;g.fillRect(sx+4,sy,4,11);g.fillRect(sx+3,sy+10,6,2);g.fillStyle=o.used?'#3a3836':hc;g.fillRect(sx+5,sy+3,2,1);g.fillRect(sx+5,sy+5,2,1);g.fillRect(sx+5,sy+7,2,1);if(hist){g.fillStyle='#141210';g.fillRect(sx+6,sy+1,1,4)}}
     return;
   }
-  if(o.k==='node'){const s=nodeSprite(o);g.drawImage(s,sx+1,sy+5);return}
+  if(o.k==='node'){const s=nodeSprite(o);g.drawImage(s,0,0,SS,SS,sx+1,sy+5,10,10);return}
   if(o.k==='item'){
     const it=o.it,b=Math.round(Math.sin(t*3+o.bob)*1),cx=sx+6,cy=sy+7+b;
     if(it.t==='mat'){g.fillStyle=shade(MATS[it.mat].c,.6);g.fillRect(cx-2,cy-1,4,3);g.fillStyle=MATS[it.mat].c;g.fillRect(cx-2,cy-2,3,2);if(it.bait){g.fillStyle='#a03024';g.fillRect(cx+1,cy-3,1,1)}if(it.goods){g.fillStyle='#e0a040';g.fillRect(cx-3,cy-3,2,1)}}
@@ -6496,7 +6934,7 @@ function drawObj(o,sx,sy,t,g){
       g.fillStyle=o.patched?'#5cc4c4':((t*1.3+o.led*3)%2)<1.6?(o.led<.5?'#c84030':'#4fc0c0'):'#202020';g.fillRect(sx+8,sy+8,1,1);return}
     if(o.sub==='remains'){if(big){g.fillStyle='#a8a08a';g.fillRect(sx+2,sy+ph-6,pw-4,4);g.fillRect(sx+4,sy+ph-10,6,4);g.fillRect(sx+pw-10,sy+ph-12,8,6);g.fillStyle='#2a2620';g.fillRect(sx+3,sy+ph-5,2,2);return}
       g.fillStyle='#a8a08a';g.fillRect(sx+3,sy+8,2,2);g.fillRect(sx+6,sy+9,4,1);g.fillRect(sx+6,sy+7,1,3);g.fillRect(sx+8,sy+7,1,3);g.fillStyle='#2a2620';g.fillRect(sx+3,sy+8,1,1);return}
-    if(o.sub==='corpse'){const c=MATS[SPECIES[o.sp].mats[0]].c;g.fillStyle=shade(c,.45);g.fillRect(sx,sy+8,12,3);g.globalAlpha=.4+.35*o.parts.length/SPECIES[o.sp].mats.length;g.drawImage(spriteOf({comp:{species:o.sp},faction:'wild'},false,'n'),0,0,10,10,sx+1,sy+6,10,5);g.globalAlpha=1;return}
+    if(o.sub==='corpse'){const c=MATS[SPECIES[o.sp].mats[0]].c;g.fillStyle=shade(c,.45);g.fillRect(sx,sy+8,12,3);g.globalAlpha=.4+.35*o.parts.length/SPECIES[o.sp].mats.length;g.drawImage(spriteOf({comp:{species:o.sp},faction:'wild'},false,'n'),0,0,SS,SS,sx+1,sy+6,10,5);g.globalAlpha=1;return}
   }
   if(o.k==='enc'){
     if(o.et==='terminal'){if(big){g.fillStyle='#26292c';g.fillRect(sx+1,sy+1,pw-2,ph-2);g.fillStyle=o.used?'#2a3436':((t*7|0)%9?'#3f9a98':'#2c6a6a');g.fillRect(sx+3,sy+2,pw-6,ph-6);g.fillStyle='#16181a';g.fillRect(sx+4,sy+ph-4,pw-8,2)}
@@ -6517,7 +6955,15 @@ function drawObj(o,sx,sy,t,g){
   }
 }
 function gearCol(g){const m=g.parts&&g.parts[0];return m&&MATS[m]?MATS[m].c:'#d0d0d0'}
-function gearPix(col,x,y,w=1,h=1){ctx.fillStyle='#100e0c';ctx.fillRect(x+1,y+1,w,h);ctx.fillStyle=col;ctx.fillRect(x,y,w,h)}
+function gearPix(col,x,y,w=1,h=1){
+  // Fine device chips (~2–3px), not RES-block upres of logical pixels.
+  deviceXform(ctx);
+  const X=Math.round(x*RES),Y=Math.round(y*RES),W=Math.max(2,Math.round(w*2.5)),H=Math.max(2,Math.round(h*2.5));
+  ctx.fillStyle='#100e0c';ctx.fillRect(X+1,Y+1,W,H);
+  ctx.fillStyle=col;ctx.fillRect(X,Y,W,H);
+  ctx.fillStyle=poseShade(col,1.3);ctx.fillRect(X,Y,Math.max(1,W-1),1);
+  worldXform(ctx);
+}
 function gearBits(col,bits,ox=0,oy=0){for(const b of bits)gearPix(col,ox+b[0],oy+b[1],b[2]||1,b[3]||1)}
 // facing-aware paint layer: 'back' under torso, 'front' over it, null = skip this facing
 function gearPass(slot,a){
@@ -6602,7 +7048,7 @@ function drawActor(a,sx,sy,t){
     const dx=sx-(pw>>1)+lx,dy=sy-ph+3*sc-bob+ly,fade=(a.comp.species==='Ghost'||a.comp.species==='Spirit')?.55+.25*Math.sin(t*3+a.id):a.asleep?.7:1;
     ctx.save();ctx.translate(a.face<0?dx+pw:dx,dy);if(a.face<0)ctx.scale(-1,1);
     ctx.globalAlpha=(a.hidden?.45:1)*fade;
-    ctx.drawImage(spriteOf(a,a.flash>0),0,0,10,10,0,0,pw,ph);
+    ctx.drawImage(spriteOf(a,a.flash>0),0,0,SS,SS,0,0,pw,ph);
     ctx.globalAlpha=a.hidden?.45:1;if(sc===1)drawGear(a,t);ctx.restore();
   }else if(sc===1&&a.pose&&a.pose.ch){
     ctx.save();ctx.globalAlpha=a.hidden?.45:1;drawPoseGear(a,t,'front');ctx.restore();
@@ -6647,11 +7093,13 @@ function drawMegaParallax(t){
   if(shaftI>8){ctx.fillStyle=`rgba(60,100,110,${.02+Math.sin(t*1.2)*.01})`;ctx.fillRect(0,0,VW,VH)}
 }
 function draw(t){
+  worldXform(ctx);worldXform(lctx);
   let tx=(lookAt?lookAt.x:player.x)*TS-VW/2,ty=(lookAt?lookAt.y:player.y)*TS-VH/2;
   if(!NARROW()){tx=clamp(tx,-40,MW*TS-VW+40);ty=clamp(ty,-40,MH*TS-VH+40)}
   cam.x=Math.round(tx+(R()-.5)*shake*2);cam.y=Math.round(ty+(R()-.5)*shake*2);
   ctx.fillStyle='#000';ctx.fillRect(0,0,VW,VH);
   drawMegaParallax(t);
+  // Env tiles are 1× logical; worldXform scales them with the scene (no TSP reauthor).
   ctx.drawImage(lvlCanvas,-cam.x,-cam.y);
   const tx0=Math.max(0,Math.floor(cam.x/TS)),ty0=Math.max(0,Math.floor(cam.y/TS)),tx1=Math.min(MW-1,Math.ceil((cam.x+VW)/TS)),ty1=Math.min(MH-1,Math.ceil((cam.y+VH)/TS));
   for(const o of objs){if(o.x<tx0-1||o.x>tx1||o.y<ty0-1||o.y>ty1||!explored[idx(o.x,o.y)])continue;if(o.k==='enc'&&o.hidden)continue;drawObj(o,o.x*TS-cam.x,o.y*TS-cam.y,t)}
@@ -6699,7 +7147,8 @@ function draw(t){
     else if(o.k==='enc'&&!o.used&&o.et==='altar')hole(x,y,28,.8);
     else if(o.k==='art'&&o.type===5&&!o.used&&o.memes.length)hole(x,y,14,.5)}
   {let hot=0;for(const p of parts){if(hot>40)break;if(p.c[1]==='f'){hot++;hole(p.x-cam.x,p.y-cam.y,10,.5)}}}
-  ctx.drawImage(lightCv,0,0);
+  // lightCv is already RES-scaled; composite in device pixels so it isn't scaled twice
+  deviceXform(ctx);ctx.drawImage(lightCv,0,0);worldXform(ctx);
   ctx.globalCompositeOperation='lighter';
   for(const[x,y,r,c,s]of glows){if(r<.5)continue;const[cr,cg,cb]=hex(c);const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(${cr},${cg},${cb},${s})`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
   ctx.globalCompositeOperation='source-over';
@@ -6932,8 +7381,19 @@ const COND_G={hpBelow:'heart',energyBelow:'bolt',energyAbove:'bolt',threat:'warn
   stationNeed:'flame',herdNear:'paw',clearWeather:'screen',riteNear:'skull',grudgeNear:'warn',pilgrimPack:'pack'};
 const CAT_COL={Combat:'#c0503c',Survival:'#7ab060',Stealth:'#8a86c0',Extraction:'#b08850',Refining:'#d07030',Making:'#c8a850',Social:'#60a8b8',Travel:'#a8a8a8',Broad:'#e0e0e0',Modifier:'#808080'};
 const glyphCache={};
-function glyphURL(n){if(glyphCache[n])return glyphCache[n];const g=GLYPH[n]||GLYPH.dot;let r='';g.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]==='#')r+=`<rect x="${x}" y="${y}" width="1" height="1"/>`});
-  return glyphCache[n]=`url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7 7" shape-rendering="crispEdges">${r}</svg>`)}')`}
+function glyphURL(n){if(glyphCache[n])return glyphCache[n];const g=GLYPH[n]||GLYPH.dot,S=RES;let r='';
+  g.forEach((row,y)=>{for(let x=0;x<row.length;x++)if(row[x]==='#'){
+    const ox=x*S,oy=y*S,on=(xx,yy)=>yy>=0&&yy<g.length&&xx>=0&&xx<(g[yy]||'').length&&g[yy][xx]==='#';
+    for(let dy=0;dy<S;dy++)for(let dx=0;dx<S;dx++){
+      // silhouette: keep full chip; notch outer corners so RES× glyphs stay readable at 14px
+      if(dx===0&&dy===0&&!on(x-1,y)&&!on(x,y-1))continue;
+      if(dx===S-1&&dy===0&&!on(x+1,y)&&!on(x,y-1))continue;
+      if(dx===0&&dy===S-1&&!on(x-1,y)&&!on(x,y+1))continue;
+      if(dx===S-1&&dy===S-1&&!on(x+1,y)&&!on(x,y+1))continue;
+      r+=`<rect x="${ox+dx}" y="${oy+dy}" width="1" height="1"/>`;
+    }
+  }});
+  return glyphCache[n]=`url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GS} ${GS}" shape-rendering="crispEdges">${r}</svg>`)}')`}
 const ico=(n,cls,title)=>`<i class="ico${cls?' '+cls:''}" style="--g:${glyphURL(n)}"${title?` title="${esc(title)}"`:''} aria-hidden="${title?'false':'true'}"></i>`;
 const verbIco=v=>VERB_G[v]||'dot';
 const thoughtIco=tid=>{const T=TH[tid];return T&&T.v.length?verbIco(T.v[0][0]):'dot'};
@@ -7011,7 +7471,21 @@ function renderMind(){
   if(sheet==='peek'||dockTab!=='mind')return;
   if(SIMPLE){renderMindSimple();return}
   const inline=layout!=='bottom';let h='';const routes=routeCache=routePreview(),cs=RG.sites[RG.cur];
-  const travelWhy=(tid,st,row)=>{if(st==='run'||!TH[tid].v.some(v=>v[0]==='TRAVEL'))return null;const r=routes.find(r=>r.tid===tid);if(!r)return null;if(r.to==null)return'<span class="dim">→ no known duct</span>';const o=RG.sites[r.to];return`<span class="acc">→ ${esc(o.name)} ${dirArrow(o.x-cs.x,o.y-cs.y)}</span>${st==='x'?' <span class="dim">('+shortWhy(st,row)+')</span>':''}`};
+  const travelWhy=(tid,st,row)=>{
+    if(st==='run'||!TH[tid].v.some(v=>v[0]==='TRAVEL'))return null;
+    // prefer a TRAVEL that actually picked a duct (earlier when-gated verbs push to:null)
+    const r=routes.find(r=>r.tid===tid&&r.to!=null)||routes.find(r=>r.tid===tid);if(!r)return null;
+    if(r.to!=null){const o=RG.sites[r.to];return`<span class="acc">→ ${esc(o.name)} ${dirArrow(o.x-cs.x,o.y-cs.y)}</span>${st==='x'?' <span class="dim">('+shortWhy(st,row)+')</span>':''}`}
+    if(!exits||!exits.length)return'<span class="dim">→ no ducts here</span>';
+    if(exits.every(e=>sealMap&&sealMap[e.i])){
+      // TRAVEL should be quarrying — if routePreview still null, show sealed; else arrow already returned above
+      return'<span class="dim">→ opening a seal</span>';
+    }
+    const knownN=exits.filter(e=>explored[e.i]&&!(sealMap&&sealMap[e.i])).length;
+    if(!knownN)return'<span class="dim">→ no known duct</span>';
+    if((a.idleT||0)<3&&a.exT!=null)return'<span class="dim">→ still exploring</span>';
+    return'<span class="dim">→ no route yet</span>';
+  };
   const slot=i=>`<button class="slot" data-slot="${i}">⤓ place here${placing?': '+esc(previewText(placing,i)):''}</button>`;
   a.mind.forEach((tid,i)=>{const T=TH[tid],row=tr.find(r=>r.tid===tid),st=rowState(row),open=inline&&(openRows.has(tid)||selTh===tid);
     if(placing)h+=slot(i);
@@ -7408,6 +7882,9 @@ function closeMap(){mapOpen=false;$('mapov').hidden=true;regSel=null}
 function drawRegion(){
   if(!mapOpen)return;
   const c=$('reg'),g=c.getContext('2d'),S=RG.sites,cur=S[RG.cur],t=realT();
+  // Logical site coords stay 320×156; buffer is REG_W×REG_H (RES× reauthor).
+  if(c.width!==REG_W)c.width=REG_W;if(c.height!==REG_H)c.height=REG_H;
+  g.setTransform(RES,0,0,RES,0,0);g.imageSmoothingEnabled=false;
   g.fillStyle='#050505';g.fillRect(0,0,320,156);g.lineWidth=1;
   g.strokeStyle='#202020';g.beginPath();for(const s of S)for(const j of s.nb)if(j>s.id){const[a,b]=siteXY(s),[c2,d]=siteXY(S[j]);g.moveTo(a+.5,b+.5);g.lineTo(c2+.5,d+.5)}g.stroke();
   g.strokeStyle='#707070';g.beginPath();for(const j of cur.nb){const[a,b]=siteXY(cur),[c2,d]=siteXY(S[j]);g.moveTo(a+.5,b+.5);g.lineTo(c2+.5,d+.5)}g.stroke();
@@ -7536,7 +8013,7 @@ function applyNetWelcome(msg){
     try{if(RG.inside)leaveSite()}catch(e){}
     enterSite(siteId,null,[]);
     applyNetActors(msg.site);
-    try{computeVis();if(!lvlCanvas)renderLevel()}catch(e){}
+    try{computeVis();if(!lvlCanvas||lvlCanvas.width!==MW*TS)renderLevel()}catch(e){}
   }
   return true;
 }
@@ -8008,13 +8485,14 @@ function saveCampaign(){
     const civs=RG.civs.map(serializeCiv);
     const sites=RG.sites.map(s=>{
       return{id:s.id,x:s.x,y:s.y,nb:s.nb,name:s.name,type:s.type,tier:s.tier,base:s.base,res:s.res,N:s.N,Q:s.Q,S:s.S,F:s.F,
-        sp:s.sp,arts:s.arts,ruins:s.ruins,read:s.read,seed:s.seed,collapseT:s.collapseT,warT:s.warT,phase:s.phase,cx:s.cx,avail:s.avail,reg:s.reg,hold:!!s.hold,
+        sp:s.sp,arts:s.arts,ruins:s.ruins,read:s.read,seed:s.seed,collapseT:s.collapseT,warT:s.warT,phase:s.phase,cx:s.cx,avail:s.avail,reg:s.reg,hold:siteIsHold(s),
         dun:serializeSiteDun(s.dun),dunPowered:s.dunPowered||0,civ:s.civ?s.civ.id:null,km:s.km||null,
         visited:!!s.visited,heardOf:!!s.heardOf,lastVisit:s.lastVisit,marked:s.marked,fallen:s.fallen||[],pulseT:s.pulseT,
         scar:s.scar||0,scarAge:s.scarAge||0,crew:s.crew||0,bloomT:s.bloomT,fallSeed:s.fallSeed||null,fallReg:s.fallReg||null,clearT:s.clearT,newsHot:s.newsHot,
         rite:s.rite||0,A:s.A||0,sealTo:[...(s.sealTo instanceof Set?s.sealTo:(s.sealTo||[]))]};
     });
-    const blob={ver:1,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:!!RG.inside},
+    const blob={ver:1,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:!!RG.inside,
+        edgeBan:[...(RG.edgeBan||[])],hopBan:RG.hopBan||null,siteDone:[...(RG.siteDone||[])]},
       cyc,newsId,nextId,gameTime,meta:{best:save.best},
       vessel:player?{save:{lib:save.lib,mind:save.mind,src:save.src,best:save.best,newT:[...(save.newT||[])]},
         vmem:serializeVmem(vmem),heardN:[...heardN],scanned:[...scanned],tileFeed:[...tileFeed],stats,depth,
@@ -8039,8 +8517,10 @@ function loadCampaign(){
       if(s.km)site.km=s.km;return site;
     });
     RG={sites,start:raw.RG.start,cur:raw.RG.cur,prev:raw.RG.prev,tick:raw.RG.tick||0,civs:[...civById.values()],
-      crit:raw.RG.crit||0,news:raw.RG.news||[],events:[],flowIn:[],flowOut:[],inside:false};
+      crit:raw.RG.crit||0,news:raw.RG.news||[],events:[],flowIn:[],flowOut:[],inside:false,
+      edgeBan:new Map(raw.RG.edgeBan||[]),hopBan:raw.RG.hopBan||null,siteDone:new Set(raw.RG.siteDone||[])};
     for(const s of RG.sites)ensureSiteHold(s);
+    ensureRegionConnected();
     if(raw.vessel&&raw.vessel.player){
       const vs=raw.vessel;
       save.lib=vs.save.lib||START_LIB.slice();save.mind=vs.save.mind||DEFAULT_MIND.slice();save.src=vs.save.src||{};

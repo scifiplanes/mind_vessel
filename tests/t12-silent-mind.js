@@ -57,13 +57,13 @@ async function main() {
   const early = g.VERB.TRAVEL(p, { to: 'deeper' });
   assert.ok(!early || early.to !== g.RG.prev, 'must not board return duct during brief sit');
 
-  // Silent in a corridor pocket: idle waives the brief sit so Wayfarer can leave
-  p.siteT = 5;
+  // After arrival grace: idle exhausted Mind can leave (not via return duct)
+  p.siteT = 25;
   p.idleT = 8;
   p.bad = new Map();
-  // simulate prior duct markBad (old softlock)
   const leave = g.VERB.TRAVEL(p, { to: 'deeper' });
-  assert.ok(leave && leave.act === 'travel', 'idle exhausted Mind can TRAVEL even with short siteT');
+  assert.ok(leave && leave.to != null, 'idle exhausted Mind can TRAVEL after arrival grace');
+  assert.notEqual(leave.to, g.RG.prev, 'leave must not be the return duct');
 
   p.siteT = 40;
   p.idleT = 0;
@@ -79,6 +79,26 @@ async function main() {
   const fogDuct = g.think(p);
   assert.ok(fogDuct && (fogDuct.v === 'TRAVEL' || fogDuct.act === 'travel' || fogDuct.v === 'EXPLORE'),
     'idle Mind acts when ducts were unexplored; got ' + (fogDuct && (fogDuct.v || fogDuct.act)));
+
+  // Stale exT must not block TRAVEL once the pocket is painted explored ("no known duct" UI lie)
+  for (let i = 0; i < explored.length; i++) explored[i] = 1;
+  p.exT = g.idx(p.x | 0, p.y | 0);
+  p.idleT = 8;
+  p.siteT = 20;
+  p.bad = new Map();
+  const staleEx = g.VERB.TRAVEL(p, { to: 'deeper' });
+  assert.ok(staleEx && staleEx.to != null, 'idle TRAVEL ignores leftover exT when map is explored');
+
+  // Missing exit records: TRAVEL must rebuild from site.nb
+  const had = g.exits.slice();
+  g.exits.length = 0;
+  p.idleT = 8;
+  p.siteT = 40;
+  p.exT = null;
+  const rebuilt = g.VERB.TRAVEL(p, { to: 'deeper' });
+  assert.ok(g.exits.length, 'ensureExits restores ducts');
+  assert.ok(rebuilt && rebuilt.to != null, 'TRAVEL after exit rebuild; got ' + (rebuilt && (rebuilt.to || rebuilt.lab)));
+  g.exits = had;
 
   console.log('PASS t12-silent-mind');
 }
