@@ -7,6 +7,8 @@
     "start": "node scripts/start.js",
     "start:cloud": "MIND_VESSEL_CLOUD=1 MIND_VESSEL_NO_OPEN=1 node scripts/start.js",
     "test": "node tests/run-all.js",
+    "playtest": "node tests/playtest/softlock.js",
+    "playtest:full": "node tests/playtest/softlock.js --seeds 12 --seconds 90 --minds all --keep-going",
     "extract": "node tests/harness/extract.js",
     "host": "node server/host.js",
     "relay": "node relay/server.js"

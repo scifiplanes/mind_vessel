@@ -89,6 +89,19 @@ globalThis.__MV_G=(function(){
   if(typeof bfs==='function')bindFn('bfs',bfs);
   if(typeof idx==='function')bindFn('idx',idx);
   if(typeof unexploredFor==='function')bindFn('unexploredFor',unexploredFor);
+  if(typeof rngSeed==='function')bindFn('rngSeed',rngSeed);
+  if(typeof pathToDuct==='function')bindFn('pathToDuct',pathToDuct);
+  if(typeof pathTo==='function')bindFn('pathTo',pathTo);
+  if(typeof ensureExits==='function')bindFn('ensureExits',ensureExits);
+  if(typeof ensureRegionConnected==='function')bindFn('ensureRegionConnected',ensureRegionConnected);
+  if(typeof soleDuctRelief==='function')bindFn('soleDuctRelief',soleDuctRelief);
+  if(typeof pathDuctRelief==='function')bindFn('pathDuctRelief',pathDuctRelief);
+  if(typeof travelBackOk==='function')bindFn('travelBackOk',travelBackOk);
+  if(typeof siteDone==='function')bindFn('siteDone',siteDone);
+  if(typeof frontierValue==='function')bindFn('frontierValue',frontierValue);
+  if(typeof hopBanned==='function')bindFn('hopBanned',hopBanned);
+  if(typeof seekTileToward==='function')bindFn('seekTileToward',seekTileToward);
+  if(typeof starterThoughts==='function')bindFn('starterThoughts',starterThoughts);
   if(typeof restNeed==='function')bindFn('restNeed',restNeed);
   if(typeof restGates==='function')bindFn('restGates',restGates);
   if(typeof restProfile==='function')bindFn('restProfile',restProfile);
@@ -195,6 +208,9 @@ globalThis.__MV_G=(function(){
   Object.defineProperty(g,'exits',{enumerable:true,get(){return exits},set(v){exits=v}});
   Object.defineProperty(g,'pendingTravel',{enumerable:true,get(){return pendingTravel},set(v){pendingTravel=v}});
   Object.defineProperty(g,'VERB',{enumerable:true,get(){return VERB}});
+  Object.defineProperty(g,'R',{enumerable:true,get(){return R},set(v){R=v}});
+  Object.defineProperty(g,'AUTOPAUSE',{enumerable:true,get(){return typeof AUTOPAUSE!=='undefined'?AUTOPAUSE:undefined}});
+  Object.defineProperty(g,'dlgOpen',{enumerable:true,get(){return dlgOpen},set(v){dlgOpen=v}});
   if(typeof saveCampaignBlob!=='function'){
     g.saveCampaignBlob=function(){
       const prev=localStorage.getItem('mindvessel.campaign.v1');
