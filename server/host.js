@@ -23,6 +23,7 @@ function lanIps() {
 }
 const { encode, decode } = require('../net/protocol');
 const { saveWorld, loadWorld, importSoloCampaign } = require('./worldFile');
+const { createWorldsApi } = require('./worldsApi');
 const { createHost } = require('./hostCore');
 
 function parseArgs(argv) {
@@ -148,11 +149,41 @@ async function main() {
     }
   }
 
+  function kickAll(reason) {
+    const msg = encode({ t: 'kick', reason: reason || 'disconnected' });
+    for (const [, ws] of sockets) {
+      try {
+        if (ws.readyState === WebSocket.OPEN) ws.send(msg);
+        ws.close();
+      } catch (e) {
+        /* */
+      }
+    }
+    sockets.clear();
+    pending.clear();
+    if (g.MP && g.MP.connected) g.MP.connected.clear();
+  }
+
   let joinCode = null;
   let publicUrl = null; // https://….trycloudflare.com (set by start.js tunnel)
   const ROOT = path.resolve(__dirname, '..');
   const lobbyHtml = fs.readFileSync(path.join(__dirname, 'lobby.html'), 'utf8');
   const gameHtmlPath = path.join(ROOT, 'mind-vessel.html');
+  const worldsDir = () => {
+    if (args.world) return path.dirname(path.resolve(args.world));
+    return path.join(ROOT, 'worlds');
+  };
+  const worldsApi = createWorldsApi({
+    g,
+    getWorldPath: () => args.world,
+    setWorldPath: p => {
+      args.world = p;
+    },
+    worldsDir,
+    persist,
+    playerCount: () => (g.MP ? g.MP.connected.size : 0),
+    kickAll,
+  });
 
   if (args.relay) {
     const connectRelay = () => {
@@ -256,11 +287,18 @@ async function main() {
     };
   }
 
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     const u = new URL(req.url || '/', 'http://127.0.0.1');
     if (u.pathname === '/api/status') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(statusJson()));
+      return;
+    }
+    try {
+      if (await worldsApi.handle(req, res, u)) return;
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(e.message || e) }));
       return;
     }
     if (u.pathname === '/api/tunnel' && req.method === 'POST') {

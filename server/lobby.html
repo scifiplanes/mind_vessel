@@ -98,7 +98,7 @@ function render(s){
       <p>Short codes stay on this Mac. Prefer the worldwide invite above for friends.</p>
     </div>
 
-    <p class="status">Players online: <b id="n">${s.players|0}</b> · World: <b>${s.worldName||'save'}</b></p>
+    <p class="status">Players online: <b id="n">${s.players|0}</b> · World: <b id="wname">${s.worldName||'save'}</b></p>
     <div class="block">
       <p>Stop the world: Quit <b>MIND VESSEL Host</b> from the Dock.</p>
     </div>`;
@@ -131,6 +131,7 @@ async function load(){
     try{
       const s2=await(await fetch('/api/status')).json();
       const n=document.getElementById('n');if(n)n.textContent=String(s2.players|0);
+      const wn=document.getElementById('wname');if(wn&&s2.worldName)wn.textContent=s2.worldName;
       if(s2.globalInvite&&!hadGlobal){hadGlobal=true;render(s2)}
       else if(s2.code&&document.querySelector('.code')&&!document.querySelector('.code').textContent.includes(s2.code.slice(0,2)))location.reload();
     }catch(e){}

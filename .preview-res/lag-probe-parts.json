@@ -1,0 +1,42 @@
+{
+  "full": {
+    "upd": {
+      "mean": 2.898,
+      "max": 7.235
+    },
+    "parts": 102,
+    "actors": 28
+  },
+  "empty": {
+    "upd": {
+      "mean": 2.508,
+      "max": 7.337
+    },
+    "parts": 0,
+    "actors": 28
+  },
+  "fullAgain": {
+    "upd": {
+      "mean": 4.196,
+      "max": 10.693
+    },
+    "parts": 0
+  },
+  "breakdownEmpty": {
+    "updActor": 3.974,
+    "pose": 0.111,
+    "rest": 0.177,
+    "total": 4.262
+  },
+  "breakdownFull": {
+    "updActor": 11.457,
+    "pose": 0.148,
+    "rest": 0.197,
+    "total": 11.802
+  },
+  "verdict": {
+    "updateSlowerWhenPartsFull": false,
+    "ratio": 1.16,
+    "updActorFullVsEmpty": 2.88
+  }
+}

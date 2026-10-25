@@ -1,0 +1,671 @@
+{
+  "when": "2026-10-25T12:18:30.016Z",
+  "dwell": {
+    "label": "dwell_180s",
+    "samples": 6,
+    "updateMs": {
+      "first": {
+        "n": 40,
+        "mean": 10.741,
+        "med": 10.037,
+        "p95": 15.002,
+        "max": 16.721
+      },
+      "last": {
+        "n": 40,
+        "mean": 16.906,
+        "med": 14.354,
+        "p95": 30.214,
+        "max": 209.208
+      },
+      "meanGrowth": 6.165,
+      "p95Growth": 15.212
+    },
+    "saveMs": {
+      "first": {
+        "mean": 1.69,
+        "max": 2.3
+      },
+      "last": {
+        "mean": 1.66,
+        "max": 1.93
+      },
+      "growth": -0.03
+    },
+    "growth": {
+      "actors": {
+        "from": 17,
+        "to": 20,
+        "d": 3
+      },
+      "liveActors": {
+        "from": 17,
+        "to": 20,
+        "d": 3
+      },
+      "objs": {
+        "from": 11,
+        "to": 36,
+        "d": 25
+      },
+      "parts": {
+        "from": 50,
+        "to": 714,
+        "d": 664
+      },
+      "barks": {
+        "from": 4,
+        "to": 10,
+        "d": 6
+      },
+      "newsWait": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "heardN": {
+        "from": 0,
+        "to": 3,
+        "d": 3
+      },
+      "news": {
+        "from": 8,
+        "to": 60,
+        "d": 52
+      },
+      "scanned": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "tileFeed": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "envLights": {
+        "from": 33,
+        "to": 117,
+        "d": 84
+      },
+      "dunN": {
+        "from": 2,
+        "to": 5,
+        "d": 3
+      },
+      "dunCanvasN": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "dunBytes": {
+        "from": 73792,
+        "to": 186560,
+        "d": 112768
+      },
+      "vmemN": {
+        "from": 4480,
+        "to": 11200,
+        "d": 6720
+      },
+      "logN": {
+        "from": 16,
+        "to": 110,
+        "d": 94
+      },
+      "poseN": {
+        "from": 10,
+        "to": 14,
+        "d": 4
+      },
+      "barkSeen": {
+        "from": 6,
+        "to": 75,
+        "d": 69
+      },
+      "softTint": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "walks": {
+        "from": 401,
+        "to": 585,
+        "d": 184
+      },
+      "regrow": {
+        "from": 7,
+        "to": 306,
+        "d": 299
+      }
+    },
+    "series": [
+      {
+        "at": 30,
+        "updMean": 10.741,
+        "updP95": 15.002,
+        "actors": 17,
+        "objs": 11,
+        "parts": 50,
+        "dunN": 2,
+        "dunCanvasN": 0,
+        "dunKB": 72,
+        "heardN": 0,
+        "envLights": 33,
+        "poseN": 10,
+        "saveMs": 1.69
+      },
+      {
+        "at": 60,
+        "updMean": 2.104,
+        "updP95": 6.777,
+        "actors": 22,
+        "objs": 20,
+        "parts": 0,
+        "dunN": 3,
+        "dunCanvasN": 0,
+        "dunKB": 108,
+        "heardN": 0,
+        "envLights": 42,
+        "poseN": 1,
+        "saveMs": 1.42
+      },
+      {
+        "at": 90,
+        "updMean": 3.614,
+        "updP95": 14.863,
+        "actors": 24,
+        "objs": 20,
+        "parts": 0,
+        "dunN": 3,
+        "dunCanvasN": 0,
+        "dunKB": 108,
+        "heardN": 0,
+        "envLights": 42,
+        "poseN": 7,
+        "saveMs": 1.3
+      },
+      {
+        "at": 120,
+        "updMean": 17.317,
+        "updP95": 32.732,
+        "actors": 30,
+        "objs": 30,
+        "parts": 237,
+        "dunN": 4,
+        "dunCanvasN": 0,
+        "dunKB": 145,
+        "heardN": 3,
+        "envLights": 104,
+        "poseN": 22,
+        "saveMs": 1.73
+      },
+      {
+        "at": 150,
+        "updMean": 8.911,
+        "updP95": 37.728,
+        "actors": 14,
+        "objs": 39,
+        "parts": 0,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 3,
+        "envLights": 120,
+        "poseN": 4,
+        "saveMs": 1.95
+      },
+      {
+        "at": 180,
+        "updMean": 16.906,
+        "updP95": 30.214,
+        "actors": 20,
+        "objs": 36,
+        "parts": 714,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 3,
+        "envLights": 117,
+        "poseN": 14,
+        "saveMs": 1.66
+      }
+    ]
+  },
+  "travel": {
+    "label": "travel_12hops",
+    "samples": 13,
+    "updateMs": {
+      "first": {
+        "n": 40,
+        "mean": 0.265,
+        "med": 0.117,
+        "p95": 1.321,
+        "max": 1.364
+      },
+      "last": {
+        "n": 40,
+        "mean": 5.707,
+        "med": 0.978,
+        "p95": 29.354,
+        "max": 30.007
+      },
+      "meanGrowth": 5.442,
+      "p95Growth": 28.033
+    },
+    "saveMs": {
+      "first": {
+        "mean": 1.41,
+        "max": 1.5
+      },
+      "last": {
+        "mean": 1.15,
+        "max": 1.35
+      },
+      "growth": -0.26
+    },
+    "growth": {
+      "actors": {
+        "from": 13,
+        "to": 22,
+        "d": 9
+      },
+      "liveActors": {
+        "from": 13,
+        "to": 22,
+        "d": 9
+      },
+      "objs": {
+        "from": 21,
+        "to": 22,
+        "d": 1
+      },
+      "parts": {
+        "from": 62,
+        "to": 94,
+        "d": 32
+      },
+      "barks": {
+        "from": 10,
+        "to": 10,
+        "d": 0
+      },
+      "newsWait": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "heardN": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "news": {
+        "from": 63,
+        "to": 117,
+        "d": 54
+      },
+      "scanned": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "tileFeed": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "envLights": {
+        "from": 81,
+        "to": 79,
+        "d": -2
+      },
+      "dunN": {
+        "from": 5,
+        "to": 5,
+        "d": 0
+      },
+      "dunCanvasN": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "dunBytes": {
+        "from": 186368,
+        "to": 186432,
+        "d": 64
+      },
+      "vmemN": {
+        "from": 2240,
+        "to": 4480,
+        "d": 2240
+      },
+      "logN": {
+        "from": 122,
+        "to": 225,
+        "d": 103
+      },
+      "poseN": {
+        "from": 1,
+        "to": 1,
+        "d": 0
+      },
+      "barkSeen": {
+        "from": 78,
+        "to": 94,
+        "d": 16
+      },
+      "softTint": {
+        "from": 0,
+        "to": 0,
+        "d": 0
+      },
+      "walks": {
+        "from": 299,
+        "to": 313,
+        "d": 14
+      },
+      "regrow": {
+        "from": 1,
+        "to": 5,
+        "d": 4
+      }
+    },
+    "series": [
+      {
+        "at": 0,
+        "updMean": 0.265,
+        "updP95": 1.321,
+        "actors": 13,
+        "objs": 21,
+        "parts": 62,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 81,
+        "poseN": 1,
+        "saveMs": 1.41
+      },
+      {
+        "at": 1,
+        "updMean": 1.295,
+        "updP95": 4.917,
+        "actors": 12,
+        "objs": 11,
+        "parts": 42,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 32,
+        "poseN": 6,
+        "saveMs": 1.22
+      },
+      {
+        "at": 2,
+        "updMean": 0.619,
+        "updP95": 1.911,
+        "actors": 17,
+        "objs": 22,
+        "parts": 50,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 82,
+        "poseN": 1,
+        "saveMs": 1.51
+      },
+      {
+        "at": 3,
+        "updMean": 2.56,
+        "updP95": 7.553,
+        "actors": 19,
+        "objs": 11,
+        "parts": 160,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 34,
+        "poseN": 10,
+        "saveMs": 1.46
+      },
+      {
+        "at": 4,
+        "updMean": 5.097,
+        "updP95": 30.627,
+        "actors": 19,
+        "objs": 21,
+        "parts": 301,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 82,
+        "poseN": 1,
+        "saveMs": 1.43
+      },
+      {
+        "at": 5,
+        "updMean": 21.197,
+        "updP95": 46.039,
+        "actors": 20,
+        "objs": 11,
+        "parts": 0,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 34,
+        "poseN": 7,
+        "saveMs": 1.48
+      },
+      {
+        "at": 6,
+        "updMean": 6.646,
+        "updP95": 34.637,
+        "actors": 19,
+        "objs": 22,
+        "parts": 0,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 78,
+        "poseN": 1,
+        "saveMs": 1.74
+      },
+      {
+        "at": 7,
+        "updMean": 19.667,
+        "updP95": 48.87,
+        "actors": 25,
+        "objs": 12,
+        "parts": 190,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 33,
+        "poseN": 12,
+        "saveMs": 1.14
+      },
+      {
+        "at": 8,
+        "updMean": 6.621,
+        "updP95": 33.203,
+        "actors": 24,
+        "objs": 22,
+        "parts": 0,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 83,
+        "poseN": 1,
+        "saveMs": 1.4
+      },
+      {
+        "at": 9,
+        "updMean": 17.7,
+        "updP95": 51.453,
+        "actors": 25,
+        "objs": 13,
+        "parts": 351,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 37,
+        "poseN": 10,
+        "saveMs": 1.53
+      },
+      {
+        "at": 10,
+        "updMean": 4.389,
+        "updP95": 28.504,
+        "actors": 22,
+        "objs": 23,
+        "parts": 156,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 80,
+        "poseN": 1,
+        "saveMs": 1.38
+      },
+      {
+        "at": 11,
+        "updMean": 19.741,
+        "updP95": 46.192,
+        "actors": 26,
+        "objs": 11,
+        "parts": 44,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 35,
+        "poseN": 15,
+        "saveMs": 1.42
+      },
+      {
+        "at": 12,
+        "updMean": 5.707,
+        "updP95": 29.354,
+        "actors": 22,
+        "objs": 22,
+        "parts": 94,
+        "dunN": 5,
+        "dunCanvasN": 0,
+        "dunKB": 182,
+        "heardN": 0,
+        "envLights": 79,
+        "poseN": 1,
+        "saveMs": 1.15
+      }
+    ]
+  },
+  "corrDwell": {
+    "liveActors": 0.204,
+    "objs": 0.458,
+    "parts": 0.744,
+    "envLights": 0.673,
+    "poseN": 0.874,
+    "heardN": 0.759,
+    "news": 0.526
+  },
+  "corrTravel": {
+    "liveActors": 0.707,
+    "objs": -0.582,
+    "dunN": 0,
+    "dunBytes": 0.225,
+    "visited": 0,
+    "vmemN": 0.314,
+    "poseN": 0.707,
+    "saveVsDunN": 0,
+    "saveVsDunBytes": -0.035
+  },
+  "hypotheses": [
+    {
+      "id": "H1_actors_dwell",
+      "claim": "Live actor count grows during long dwell and drives update() cost",
+      "evidence": {
+        "actorDelta": 3,
+        "updMeanGrowthMs": 6.165,
+        "corrActorsUpd": 0.204
+      },
+      "verdict": "REJECTED"
+    },
+    {
+      "id": "H2_objs_dwell",
+      "claim": "Object/corpse/item pile-up during dwell slows nearestObj / think",
+      "evidence": {
+        "objDelta": 25,
+        "corrObjsUpd": 0.458,
+        "updMeanGrowthMs": 6.165
+      },
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "H3_dun_travel_ram",
+      "claim": "Travel accumulates dungeon typed-array state (dunN / dunBytes)",
+      "evidence": {
+        "dunNDelta": 0,
+        "dunBytesDelta": 64,
+        "canvasDelta": 0
+      },
+      "verdict": "REJECTED"
+    },
+    {
+      "id": "H4_lvlCanvas_leak",
+      "claim": "lvlCanvas still retained on cold sites after travel",
+      "evidence": {
+        "canvasFrom": 0,
+        "canvasTo": 0
+      },
+      "verdict": "REJECTED"
+    },
+    {
+      "id": "H5_save_hitch",
+      "claim": "Campaign save wall time grows with visited dungeons",
+      "evidence": {
+        "saveGrowthMs": -0.26,
+        "corrSaveDunN": 0,
+        "corrSaveBytes": -0.035
+      },
+      "verdict": "REJECTED"
+    },
+    {
+      "id": "H6_parts_fx",
+      "claim": "Particle buffer grows unboundedly over dwell",
+      "evidence": {
+        "partsFrom": 50,
+        "partsTo": 714
+      },
+      "verdict": "REJECTED"
+    },
+    {
+      "id": "H7_news_heard",
+      "claim": "News / heardN growth correlates with dwell update cost",
+      "evidence": {
+        "heardDelta": 3,
+        "newsDelta": 52,
+        "corr": 0.759
+      },
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "H8_travel_upd",
+      "claim": "update() itself gets slower after many site visits (not only save)",
+      "evidence": {
+        "updMeanGrowthMs": 5.442,
+        "corrDunUpd": 0
+      },
+      "verdict": "PARTIAL"
+    }
+  ]
+}

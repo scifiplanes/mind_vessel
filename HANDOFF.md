@@ -10,7 +10,7 @@ An indirect-control roguelike prototype. The player never moves the character (t
 
 ## 1. Design pillars (agreed with the designer)
 
-1. **Indirect control only.** The player edits the Mind; the vessel acts. "Tinker while watching" must be preserved: editing never pauses or slows time.
+1. **Indirect control by default.** The player edits the Mind; the vessel acts. "Tinker while watching" must be preserved: editing never pauses or slows time. **Manual mode** (toggle, `mindvessel.playmode`) is opt-in: WASD/arrows steer; Mind only auto-acts in range; flee is player-only (Flee/Avoid-only Thoughts hidden); hold still on a wanted duct to board; stick cancels busy. **Mind opportunities** paint diegetically as amber corner ticks on world targets (`refreshMindOpps` / `drawMindOpps`): dim = out of reach, bright+pulse = in reach; extract want-tiles also show in Manual without needing overlay R.
 2. **One system for every body.** Vessel, people (civilization members, settlers), creatures (animals, plants) all use `think()` over a Mind of Thoughts.
 3. **Thoughts die with the vessel.** Each vessel wakes with its own Library and Mind, generated from its class, culture and species. Nothing carries over except what is left in the world.
 4. **The world persists across a campaign** (a run of runs): tiles, objects, items, structures, populations, civilizations. **Knowledge does not:** each vessel has its own fog of war and region-map knowledge. Map-sharing verbs (Ask the Way, Read the Dead, Survey Lines) are the deliberate exception.
@@ -22,13 +22,15 @@ An indirect-control roguelike prototype. The player never moves the character (t
 
 ## 2. Running and controls
 
-Open `mind-vessel.html`. First run shows a short intro and three coach marks (Mind → Memory ＋ → tap world; stored in `localStorage`).
+Open `mind-vessel.html`. Boot shows the **main menu** (outline, Regions list, New / Delete / Settings / friends). Enter or New Region starts play; coach marks still run once (Mind → Memory ＋ → tap world). Invite links (`?ws=` / `?join=`) skip the menu and auto-join.
 
-Keys: `Space` pause · `S` speed ×1/×2/×4 · `M` region map · `L` Memory · `B` vessel sheet · `G` log (Detailed) · `R` world overlay · `V` dice rolls · `D` dither · `F9` or `` ` `` debug panel · `U` Simple/Detailed · `N` ×2 abandon vessel · `T` theme · `H` help · `Esc` close.
+Keys: `Space` pause · `P` Mind/Manual control · `S` speed ×1/×2/×4 (in Manual: `F3`; WASD steers) · `M` region map · `L` Memory · `B` vessel sheet · `G` log (Detailed) · `R` world overlay · `V` dice rolls · `D` dither (menu in Manual) · `F9` or `` ` `` debug panel · `U` Simple/Detailed · `N` ×2 abandon vessel · `T` theme · `H` help · `Esc` closes overlays, else **Quit to menu**.
 
-`localStorage` keys: `mindvessel.v2` (deepest tier reached), `mindvessel.campaign.v1` (full campaign + living vessel), `mindvessel.coached5` (coach complete; older `coached2`–`coached4` ignored), `mindvessel.uimode` (`simple`|`detailed`), `mindvessel.cardopen` (first world card expanded once in Simple), `mindvessel.debug` (dither and log settings), `mindvessel.autorestart`.
+`localStorage` keys: `mindvessel.v2` (deepest tier reached), `mindvessel.regions.v1` (slot index: `activeId` + `slots[]`), `mindvessel.campaign.slot.<id>` (per-Region campaign blob; legacy `mindvessel.campaign.v1` migrates into one slot on first boot), `mindvessel.coached5` (coach complete; older `coached2`–`coached4` ignored), `mindvessel.uimode` (`simple`|`detailed`), `mindvessel.playmode` (`agent`|`manual`), `mindvessel.cardopen` (first world card expanded once in Simple), `mindvessel.debug` (dither and log settings), `mindvessel.autorestart`.
 
-**Campaign persistence:** `saveCampaign` / `loadCampaign` serialise `RG` (sites, civs with Map/Set revived, news), `cyc`, visited `s.dun` TypedArrays, and the living vessel (`vmem`, Mind/Library, followers). Saves debounce ~900 ms after site enter/leave/region ticks, and flush on `beforeunload` / tab hide. Wipe (`W` twice) clears the campaign key. Reloading resumes the same region and vessel.
+**Campaign persistence:** `saveCampaign` / `loadCampaign` target the **active** Region slot. They serialise `RG` (sites, civs with Map/Set revived, news), `cyc`, visited `s.dun` TypedArrays, and the living vessel (`vmem`, Mind/Library, followers). Saves debounce ~900 ms after site enter/leave/region ticks, and flush on `beforeunload` / tab hide (skipped while on the main menu). **Delete region** (`W` twice) removes the active slot and returns to the menu; ☰ **Quit to menu** flushes and disconnects without deleting. Cap: 12 solo slots.
+
+**Host Regions:** when the page is served by `server/host.js`, the main menu also lists disk worlds under `worlds/` via `GET/POST /api/worlds`, `DELETE /api/worlds/:name` (403 if active and players online), and `POST /api/worlds/activate`.
 
 ---
 
@@ -238,3 +240,4 @@ Cloud: [`Dockerfile`](Dockerfile) + [`fly.toml`](fly.toml) — persistent world 
 - After any change: `npm run extract && node --check sim/game.js`, then `npm test`.
 - Measure gameplay changes headlessly (rates per minute, populations over time) before and after, and report the numbers.
 - Before shipping a visual change, prefer in-world representation; in Simple mode avoid adding UI words.
+- Agent skills (Cursor): `.cursor/skills/` — custom Canvas stack, so use disciplines/genre only (see `.cursor/skills/README.md`). Visual lock: `docs/art-direction-brief.md`.

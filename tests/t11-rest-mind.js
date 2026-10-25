@@ -12,6 +12,14 @@ async function main() {
 
   const p = g.player;
   assert.ok(p && !p.dead, 'vessel');
+  // Park everyone else far away — restPress scans live threats (ignores stale _thr)
+  for (const a of g.actors) if (a !== p && !a.dead) { a.x = 40; a.y = 40; }
+  // Rigs only rest on a live line or by a fire
+  if (g.restProfile(p).needGrid) {
+    const fire = g.objs.find(o => o.sub === 'fire' || o.sub === 'furnace' || o.sub === 'smoke' || o.sub === 'digester');
+    assert.ok(fire, 'fire for Rig rest');
+    p.x = fire.x + 0.5; p.y = fire.y + 0.5;
+  }
 
   // Innate rest: no Rest Thought required when hurt + calm (energy high so FEED does not hold)
   p.mind = ['prospect', 'wayfarer', 'tunnel'];
@@ -96,6 +104,38 @@ async function main() {
     mold.energy = 40;
     assert.equal(g.restGates(mold), false, 'flora cannot innate rest');
   }
+
+  // Wound beats forage hold (FEED/LOOT) when safe
+  for (const a of g.actors) if (a !== p && !a.dead) { a.x = 40; a.y = 40; }
+  if (g.restProfile(p).needGrid) {
+    const fire = g.objs.find(o => o.sub === 'fire' || o.sub === 'furnace' || o.sub === 'smoke' || o.sub === 'digester');
+    p.x = fire.x + 0.5; p.y = fire.y + 0.5;
+  }
+  p.hp = p.maxHp * 0.45;
+  p.energy = p.maxEnergy * 0.85;
+  p.restCd = 0;
+  p.mind = ['forager', 'wayfarer'];
+  p.lastHit = 0; p.lastAttacker = null;
+  p.inv = Object.assign({}, p.inv, { flesh: 2 });
+  assert.equal(g.restGates(p), true, 'gates open when isolated');
+  assert.equal(g.restNeed(p), true, 'need when wounded');
+  const wounded = g.think(p);
+  assert.ok(wounded && wounded.act === 'rest', 'innate rest over loot while wounded');
+
+  // Close predator in sight blocks; one a few tiles farther does not
+  const hunter = g.actors.find(a => a !== p && !a.dead && a.role === 'predator');
+  assert.ok(hunter, 'predator present');
+  const ox = p.x | 0, oy = p.y | 0;
+  // lastAttacker makes hostility reliable regardless of diet/hunger
+  hunter.lastAttacker = p; hunter.lastHit = 10;
+  hunter.x = ox + 5.5; hunter.y = oy + 0.5;
+  g.vis[g.idx(ox + 5, oy)] = 1;
+  g.vis[g.idx(ox + 1, oy)] = 1;
+  // keep Rig by its fire; only move hunter
+  assert.equal(g.restGates(p), true, 'distant hunter does not block rest');
+  hunter.x = ox + 1.5; hunter.y = oy + 0.5;
+  assert.ok(g.seenThreats(p, 3.2).length > 0, 'close hunter registers as press');
+  assert.equal(g.restGates(p), false, 'close threat blocks rest');
 
   console.log('PASS t11-rest-mind');
 }

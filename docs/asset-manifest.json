@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "art_direction_brief": "docs/art-direction-brief.md",
+  "art_bible": "docs/art-bible.md",
+  "notes": "Applied Canvas 2D hard-pixel + Bayer lock (docs/art-bible.md). SPR/pose code-authored. Soft actor drop-shadows removed; footing is hard 1px. 3D+DoF path rejected.",
+  "assets": [
+    {
+      "id": "spr-masks",
+      "role": "all creature/object 10x10 masks",
+      "path": "mind-vessel.html / sim/game.js → SPR",
+      "status": "approved",
+      "technical": {
+        "dimensions": "10x10",
+        "alpha": true,
+        "anchor": "bottomish-center",
+        "frames": 1,
+        "filtering": "nearest"
+      },
+      "visual_locks": ["palette", "silhouette", "proportions", "facing", "light-direction"],
+      "source": {
+        "kind": "authored-in-code",
+        "url_or_tool": "SPR object",
+        "creator": "project",
+        "created_at": "",
+        "license": "project",
+        "attribution": "",
+        "prompt_or_source_record": "Mask chars a/b/c/e map to SPECIES/KIND palettes"
+      },
+      "verification": {
+        "native_scale_reviewed": true,
+        "in_engine_reviewed": true,
+        "technical_checks_passed": true,
+        "approved_by": "art-direction-brief"
+      }
+    },
+    {
+      "id": "pose-stroke-bodies",
+      "role": "animated actor draw + bakePoseSprite rest bake",
+      "path": "poseClass / BODY / POSE_FN / poseDraw",
+      "status": "approved",
+      "technical": {
+        "dimensions": "SS=40 (10*RES)",
+        "alpha": true,
+        "anchor": "recentered bake",
+        "frames": "procedural",
+        "filtering": "nearest"
+      },
+      "visual_locks": ["palette", "silhouette", "proportions", "facing"],
+      "source": {
+        "kind": "authored-in-code",
+        "url_or_tool": "canvas stroke pose",
+        "creator": "project",
+        "created_at": "",
+        "license": "project",
+        "attribution": "",
+        "prompt_or_source_record": "Must match SPR family silhouettes; bake is rest-pose of strokes, not mask upres"
+      },
+      "verification": {
+        "native_scale_reviewed": true,
+        "in_engine_reviewed": true,
+        "technical_checks_passed": true,
+        "approved_by": "art-direction-brief"
+      }
+    },
+    {
+      "id": "ui-glyphs",
+      "role": "Simple-mode Thought/verb/condition icons",
+      "path": "GLYPH / VERB_G / COND_G",
+      "status": "approved",
+      "technical": {
+        "dimensions": "7x7 → SVG mask",
+        "alpha": true,
+        "anchor": "center",
+        "frames": 1,
+        "filtering": "nearest"
+      },
+      "visual_locks": ["silhouette", "edge treatment"],
+      "source": {
+        "kind": "authored-in-code",
+        "url_or_tool": "7-string masks",
+        "creator": "project",
+        "created_at": "",
+        "license": "project",
+        "attribution": "",
+        "prompt_or_source_record": ""
+      },
+      "verification": {
+        "native_scale_reviewed": true,
+        "in_engine_reviewed": true,
+        "technical_checks_passed": true,
+        "approved_by": "art-direction-brief"
+      }
+    },
+    {
+      "id": "font-perfectdos",
+      "role": "primary UI type",
+      "path": "PerfectDOS.ttf",
+      "status": "approved",
+      "technical": {
+        "dimensions": "bitmap VGA style",
+        "alpha": false,
+        "anchor": "baseline",
+        "frames": 1,
+        "filtering": "none"
+      },
+      "visual_locks": ["edge treatment"],
+      "source": {
+        "kind": "bundled-font",
+        "url_or_tool": "PerfectDOS.ttf",
+        "creator": "",
+        "created_at": "",
+        "license": "check font license before commercial ship",
+        "attribution": "Perfect DOS VGA 437",
+        "prompt_or_source_record": ""
+      },
+      "verification": {
+        "native_scale_reviewed": true,
+        "in_engine_reviewed": true,
+        "technical_checks_passed": true,
+        "approved_by": "art-direction-brief"
+      }
+    },
+    {
+      "id": "preview-photoreal-experiments",
+      "role": "non-shipping exploration dumps",
+      "path": ".preview-res/*photoreal*",
+      "status": "rejected",
+      "technical": {
+        "dimensions": "varies",
+        "alpha": false,
+        "anchor": "n/a",
+        "frames": 1,
+        "filtering": "n/a"
+      },
+      "visual_locks": [],
+      "source": {
+        "kind": "generated-or-authored",
+        "url_or_tool": "preview scripts",
+        "creator": "",
+        "created_at": "",
+        "license": "do-not-ship",
+        "attribution": "",
+        "prompt_or_source_record": "Conflicts with hard-pixel + dither contract — keep out of production SPR/UI"
+      },
+      "verification": {
+        "native_scale_reviewed": false,
+        "in_engine_reviewed": false,
+        "technical_checks_passed": false,
+        "approved_by": ""
+      }
+    }
+  ]
+}

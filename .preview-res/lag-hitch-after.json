@@ -1,0 +1,942 @@
+{
+  "when": "2026-10-25T12:45:31.616Z",
+  "summary": {
+    "n": 800,
+    "mean": 2.613,
+    "p50": 1.534,
+    "p95": 8.777,
+    "p99": 11.808,
+    "max": 41.187,
+    "spikeShare": 0.069
+  },
+  "topSpikes": [
+    {
+      "i": 769,
+      "ms": 41.187,
+      "c": {
+        "bfs": {
+          "n": 18,
+          "ms": 33.075
+        },
+        "think": {
+          "n": 7,
+          "ms": 34.857
+        },
+        "emit": {
+          "n": 1,
+          "ms": 0.019
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.099
+        },
+        "computeVis": {
+          "n": 0,
+          "ms": 0
+        }
+      }
+    },
+    {
+      "i": 782,
+      "ms": 13.817,
+      "c": {
+        "bfs": {
+          "n": 8,
+          "ms": 12.443
+        },
+        "think": {
+          "n": 4,
+          "ms": 1.927
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 1,
+          "ms": 0.509
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.052
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.015
+        }
+      }
+    },
+    {
+      "i": 770,
+      "ms": 13.433,
+      "c": {
+        "bfs": {
+          "n": 8,
+          "ms": 12.575
+        },
+        "think": {
+          "n": 5,
+          "ms": 1.789
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.084
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.018
+        }
+      }
+    },
+    {
+      "i": 794,
+      "ms": 12.712,
+      "c": {
+        "bfs": {
+          "n": 8,
+          "ms": 12.07
+        },
+        "think": {
+          "n": 4,
+          "ms": 1.577
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.052
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.013
+        }
+      }
+    },
+    {
+      "i": 758,
+      "ms": 12.54,
+      "c": {
+        "bfs": {
+          "n": 6,
+          "ms": 11.901
+        },
+        "think": {
+          "n": 3,
+          "ms": 1.141
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.063
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.012
+        }
+      }
+    },
+    {
+      "i": 446,
+      "ms": 12.068,
+      "c": {
+        "bfs": {
+          "n": 8,
+          "ms": 11.384
+        },
+        "think": {
+          "n": 2,
+          "ms": 2.869
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.139
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.013
+        }
+      }
+    },
+    {
+      "i": 752,
+      "ms": 11.839,
+      "c": {
+        "bfs": {
+          "n": 5,
+          "ms": 11.245
+        },
+        "think": {
+          "n": 2,
+          "ms": 0.643
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.095
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.013
+        }
+      }
+    },
+    {
+      "i": 788,
+      "ms": 11.808,
+      "c": {
+        "bfs": {
+          "n": 5,
+          "ms": 11.212
+        },
+        "think": {
+          "n": 2,
+          "ms": 0.569
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.096
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.014
+        }
+      }
+    },
+    {
+      "i": 776,
+      "ms": 11.804,
+      "c": {
+        "bfs": {
+          "n": 5,
+          "ms": 11.222
+        },
+        "think": {
+          "n": 2,
+          "ms": 0.96
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.063
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.012
+        }
+      }
+    },
+    {
+      "i": 566,
+      "ms": 11.515,
+      "c": {
+        "bfs": {
+          "n": 6,
+          "ms": 10.777
+        },
+        "think": {
+          "n": 4,
+          "ms": 1.133
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 23,
+          "ms": 0.133
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.013
+        }
+      }
+    },
+    {
+      "i": 362,
+      "ms": 11.436,
+      "c": {
+        "bfs": {
+          "n": 8,
+          "ms": 10.621
+        },
+        "think": {
+          "n": 4,
+          "ms": 1.699
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.18
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.014
+        }
+      }
+    },
+    {
+      "i": 458,
+      "ms": 10.992,
+      "c": {
+        "bfs": {
+          "n": 6,
+          "ms": 10.297
+        },
+        "think": {
+          "n": 3,
+          "ms": 0.849
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.156
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.012
+        }
+      }
+    },
+    {
+      "i": 452,
+      "ms": 10.888,
+      "c": {
+        "bfs": {
+          "n": 4,
+          "ms": 10.186
+        },
+        "think": {
+          "n": 1,
+          "ms": 0.042
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.166
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.015
+        }
+      }
+    },
+    {
+      "i": 434,
+      "ms": 10.85,
+      "c": {
+        "bfs": {
+          "n": 6,
+          "ms": 10.158
+        },
+        "think": {
+          "n": 4,
+          "ms": 0.772
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.125
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.012
+        }
+      }
+    },
+    {
+      "i": 764,
+      "ms": 10.643,
+      "c": {
+        "bfs": {
+          "n": 3,
+          "ms": 10.21
+        },
+        "think": {
+          "n": 0,
+          "ms": 0
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 25,
+          "ms": 0.059
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.011
+        }
+      }
+    },
+    {
+      "i": 410,
+      "ms": 10.554,
+      "c": {
+        "bfs": {
+          "n": 5,
+          "ms": 9.448
+        },
+        "think": {
+          "n": 3,
+          "ms": 0.262
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.207
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.015
+        }
+      }
+    },
+    {
+      "i": 374,
+      "ms": 10.518,
+      "c": {
+        "bfs": {
+          "n": 5,
+          "ms": 9.886
+        },
+        "think": {
+          "n": 1,
+          "ms": 0.956
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.161
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.014
+        }
+      }
+    },
+    {
+      "i": 332,
+      "ms": 10.489,
+      "c": {
+        "bfs": {
+          "n": 5,
+          "ms": 9.58
+        },
+        "think": {
+          "n": 2,
+          "ms": 0.614
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.196
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.014
+        }
+      }
+    },
+    {
+      "i": 350,
+      "ms": 10.463,
+      "c": {
+        "bfs": {
+          "n": 6,
+          "ms": 9.695
+        },
+        "think": {
+          "n": 2,
+          "ms": 1.07
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.165
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.049
+        }
+      }
+    },
+    {
+      "i": 422,
+      "ms": 10.126,
+      "c": {
+        "bfs": {
+          "n": 5,
+          "ms": 9.607
+        },
+        "think": {
+          "n": 1,
+          "ms": 0.975
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.111
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.015
+        }
+      }
+    },
+    {
+      "i": 326,
+      "ms": 10.007,
+      "c": {
+        "bfs": {
+          "n": 7,
+          "ms": 9.332
+        },
+        "think": {
+          "n": 3,
+          "ms": 0.96
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.151
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.013
+        }
+      }
+    },
+    {
+      "i": 344,
+      "ms": 9.983,
+      "c": {
+        "bfs": {
+          "n": 4,
+          "ms": 8.849
+        },
+        "think": {
+          "n": 4,
+          "ms": 0.153
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.219
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.012
+        }
+      }
+    },
+    {
+      "i": 404,
+      "ms": 9.899,
+      "c": {
+        "bfs": {
+          "n": 4,
+          "ms": 9.175
+        },
+        "think": {
+          "n": 1,
+          "ms": 0.066
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.135
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.014
+        }
+      }
+    },
+    {
+      "i": 338,
+      "ms": 9.776,
+      "c": {
+        "bfs": {
+          "n": 4,
+          "ms": 9.092
+        },
+        "think": {
+          "n": 2,
+          "ms": 0.228
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.171
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.014
+        }
+      }
+    },
+    {
+      "i": 368,
+      "ms": 9.749,
+      "c": {
+        "bfs": {
+          "n": 3,
+          "ms": 9.164
+        },
+        "think": {
+          "n": 3,
+          "ms": 0.065
+        },
+        "emit": {
+          "n": 0,
+          "ms": 0
+        },
+        "regionLive": {
+          "n": 0,
+          "ms": 0
+        },
+        "rebuildEnv": {
+          "n": 0,
+          "ms": 0
+        },
+        "poseUpdate": {
+          "n": 22,
+          "ms": 0.127
+        },
+        "computeVis": {
+          "n": 1,
+          "ms": 0.014
+        }
+      }
+    }
+  ],
+  "iso": {
+    "rebuildEnv": {
+      "mean": 0.541,
+      "p95": 0.735,
+      "max": 0.883
+    },
+    "renderLevel": {
+      "mean": 124.488,
+      "p95": 133.762,
+      "max": 133.762
+    },
+    "saveCampaign": {
+      "mean": 4.063,
+      "p95": 13.022,
+      "max": 13.022
+    },
+    "uiTick": {
+      "mean": 8.924,
+      "p95": 9.22,
+      "max": 38.236
+    },
+    "regionLive": {
+      "mean": 1.03,
+      "p95": 1.7,
+      "max": 1.7
+    },
+    "bfs_lim120": {
+      "mean": 3.586,
+      "p95": 4,
+      "max": 4.139
+    },
+    "bfs_lim320": {
+      "mean": 3.501,
+      "p95": 3.723,
+      "max": 3.723
+    },
+    "bfs_lim900": {
+      "mean": 3.392,
+      "p95": 3.493,
+      "max": 3.493
+    }
+  },
+  "snap": {
+    "gameTime": 41.99999999999975,
+    "tick": 491,
+    "cur": 79,
+    "actors": 27,
+    "liveActors": 27,
+    "objs": 20,
+    "parts": 0,
+    "floats": 0,
+    "rings": 0,
+    "barks": 10,
+    "newsWait": 0,
+    "heardN": 0,
+    "news": 3,
+    "scanned": 0,
+    "tileFeed": 0,
+    "envLights": 150,
+    "lights": 0,
+    "walks": 334,
+    "regrow": 0,
+    "conduit": 0,
+    "echo": 83,
+    "sites": 110,
+    "visited": 1,
+    "dunN": 1,
+    "dunCanvasN": 0,
+    "dunBytes": 37120,
+    "vmemN": 2240,
+    "logN": 28,
+    "poseN": 23,
+    "softTint": 0,
+    "partPool": 36,
+    "barkSeen": 9,
+    "chronicle": 4,
+    "toasts": 0
+  }
+}

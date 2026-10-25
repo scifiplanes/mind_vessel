@@ -39,6 +39,7 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
 .menubar{display:flex;align-items:center;gap:.8em;padding:0 .5em;background:var(--sel-bg);color:var(--sel-fg);white-space:nowrap;min-height:1.6em}
 .menubar button{color:inherit;min-width:1.6em}
 .menubar button:hover,.menubar button:focus-visible{background:var(--sel-fg);color:var(--sel-bg)}
+.menubar button.on{outline:1px solid var(--amber);outline-offset:-1px}
 #hdr-site{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .hb{display:inline-flex;align-items:center;gap:.3em}
 .hb i{display:inline-block;width:56px;height:8px;background:rgba(128,128,128,.35);position:relative}
@@ -316,6 +317,28 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
   .toast{font-size:16px}
 }
 @media (prefers-reduced-motion: reduce){#drawer{transition:none}.toast{animation:none}}
+/* main menu */
+#mainmenu{position:fixed;inset:0;z-index:50;background:var(--bg);color:var(--fg);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#mainmenu[hidden]{display:none}
+#mainmenu .mm-panel{border:4px double var(--line);background:var(--panel);max-width:520px;width:100%;padding:1.1em 1em .9em;display:flex;flex-direction:column;gap:.55em}
+#mainmenu .mm-title{font-size:1.35em;letter-spacing:.04em;text-align:center;margin:0}
+#mainmenu .mm-outline{color:var(--dim);line-height:1.25;margin:0;text-align:left}
+#mainmenu .mm-sec{margin:.35em 0 0;font:inherit;color:var(--dim)}
+#mainmenu .mm-list{border:1px solid var(--line);max-height:min(42vh,280px);overflow:auto;background:var(--bg)}
+#mainmenu .mm-row{display:flex;width:100%;text-align:left;padding:.35em .5em;gap:.5em;align-items:baseline;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+#mainmenu .mm-row:hover,#mainmenu .mm-row:focus-visible{background:var(--sel-bg);color:var(--sel-fg);outline:none}
+#mainmenu .mm-row.on{background:var(--sel-bg);color:var(--sel-fg)}
+#mainmenu .mm-row .r{margin-left:auto;color:var(--dim);font-size:.9em}
+#mainmenu .mm-row.on .r{color:var(--sel-fg);opacity:.7}
+#mainmenu .mm-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:.2em}
+#mainmenu .mm-actions button{font:inherit;background:transparent;color:var(--fg);border:2px solid var(--line);padding:.35em .65em;cursor:pointer}
+#mainmenu .mm-actions button.primary{border-color:var(--amber);color:var(--amber)}
+#mainmenu .mm-actions button:hover,#mainmenu .mm-actions button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);outline:none}
+#mainmenu .mm-status{min-height:1.2em;color:var(--amber);font-size:.95em}
+#mainmenu .mm-hint{color:var(--dim);font-size:.9em;margin:0}
+#mainmenu .mm-set label{display:flex;justify-content:space-between;align-items:center;gap:1em;padding:.25em 0;border-bottom:1px solid var(--line)}
+#mainmenu .mm-set button{font:inherit;border:1px solid var(--line);padding:.2em .5em;background:transparent;color:inherit;cursor:pointer}
+#app.mm-hidden{visibility:hidden;pointer-events:none}
 </style>
 </head>
 <body>
@@ -323,7 +346,7 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
   <div class="menubar"><span id="hdr-site" role="button" tabindex="0" title="Open the region map (M)">MIND//VESSEL</span>
     <span class="hb" id="hb-hp" title="Health"><span class="w">HP</span> <i><b></b></i></span><span class="hb" id="hb-en" title="Energy"><span class="w">EN</span> <i><b></b></i></span>
     <span id="net-badge" title="Multiplayer" role="button" tabindex="0">● friends</span>
-    <button id="b-pause" aria-label="Pause or resume">▌▌</button><button id="b-speed" aria-label="Change speed">x1</button><button id="b-menu" aria-label="Menu" aria-expanded="false">☰</button></div>
+    <button id="b-pause" aria-label="Pause or resume">▌▌</button><button id="b-speed" aria-label="Change speed">x1</button><button id="b-play" aria-label="Toggle Mind or Manual control" title="Control: Mind (P)">auto</button><button id="b-menu" aria-label="Menu" aria-expanded="false">☰</button></div>
   <div id="stage">
     <div class="viewwrap" id="vw">
       <canvas id="cv" width="1280" height="768" aria-label="The world. Click anything to inspect it."></canvas><div id="tag"></div>
@@ -349,6 +372,7 @@ button:hover,button:focus-visible{background:var(--sel-bg);color:var(--sel-fg);o
 </div>
 <div id="coach" hidden role="dialog" aria-live="polite"></div>
 <div class="overlay" id="dlg" hidden><div class="panel dlg" role="dialog" aria-modal="true"><h2><span id="dlg-t"></span></h2><div class="body" id="dlg-b"></div><div class="btns"><button id="dlg-ok"></button></div></div></div>
+<div id="mainmenu" hidden role="dialog" aria-modal="true" aria-label="Main menu"></div>
 
 <script>
 'use strict';
@@ -1586,8 +1610,23 @@ const RECIPES=[
   // plate-and-pack body
   {k:'Plate',slot:'body',in:[{r:'shell',t:m=>MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'shell',t:m=>MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'strap',t:m=>MP(m,'flex')>0,s:m=>MP(m,'flex')}],
     mk:(p,q)=>({armor:Math.max(1,((MP(p[0],'hard')+MP(p[1],'hard'))>>1)-1+q)})},
+  // haul packs — body slot, rear silhouette; trade armor for carry
+  {k:'Hide Sack',slot:'body',in:[{r:'sack',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'cord',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'cord',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:0,pack:4+q,haul:1})},
+  {k:'Sinew Bag',slot:'body',in:[{r:'pouch',t:m=>m==='leather'||m==='sinew'||(MP(m,'flex')>=2&&MP(m,'organic')>0),s:m=>MP(m,'flex')+MP(m,'organic')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:0,pack:5+q,haul:1})},
+  {k:'Bone Cradle',slot:'body',in:[{r:'rib',t:m=>m==='bone'||(MP(m,'hard')>=2&&MP(m,'spirit')>=1),s:m=>MP(m,'hard')+MP(m,'spirit')},{r:'rib',t:m=>m==='bone'||MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'cord',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:1,pack:6+q,haul:1})},
+  {k:'Ash Bundle',slot:'body',in:[{r:'wrap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'coal',t:m=>m==='char'||MP(m,'fuel')>=2,s:m=>MP(m,'fuel')+MP(m,'lumen')},{r:'cord',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:0,pack:5+q,light:1+q,haul:1})},
   {k:'Pack Frame',slot:'body',in:[{r:'frame',t:m=>MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
-    mk:(p,q)=>({armor:1,pack:6+q*2})},
+    mk:(p,q)=>({armor:1,pack:6+q*2,haul:1})},
+  {k:'Scrap Basket',slot:'body',in:[{r:'shell',t:m=>m==='scrap'||m==='metal'||(MP(m,'hard')>=2&&MP(m,'weight')>=2),s:m=>MP(m,'hard')+MP(m,'weight')},{r:'mesh',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:1,pack:8+q,burden:1,haul:1})},
+  {k:'Crate Rig',slot:'body',in:[{r:'frame',t:m=>MP(m,'hard')>=3,s:m=>MP(m,'hard')},{r:'shell',t:m=>MP(m,'hard')>=2&&MP(m,'weight')>=2,s:m=>MP(m,'hard')+MP(m,'weight')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:1,pack:10+q*2,burden:2,haul:1})},
+  {k:'Rivet Trunk',slot:'body',in:[{r:'shell',t:m=>MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'seal',t:m=>m==='gasket'||m==='patch'||(MP(m,'flex')>=2&&MP(m,'hard')>=1),s:m=>MP(m,'flex')+MP(m,'hard')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:1,pack:7+q,haul:1})},
   // sealed and live body
   {k:'Graft Coat',slot:'body',in:[{r:'tissue',t:m=>MP(m,'organic')>=2,s:m=>MP(m,'organic')},{r:'tissue',t:m=>MP(m,'organic')>=2,s:m=>MP(m,'organic')},{r:'thread',t:m=>MP(m,'organic')>0&&MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
     mk:(p,q)=>({armor:1+q})},
@@ -1601,6 +1640,14 @@ const RECIPES=[
     mk:()=>({armor:1,exo:1,mesh:1})},
   {k:'Coolant Vest',slot:'body',in:[{r:'shell',t:m=>MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'coil',t:m=>m==='coolant'||m==='gasket'||MP(m,'fluid')>=2,s:m=>MP(m,'fluid')+MP(m,'flex')+2},{r:'strap',t:m=>MP(m,'flex')>0,s:m=>MP(m,'flex')}],
     mk:(p,q)=>({armor:1+q,pack:2+q,filter:1})},
+  {k:'Coolant Twin',slot:'body',in:[{r:'shell',t:m=>MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'coil',t:m=>m==='coolant'||m==='gasket'||MP(m,'fluid')>=2,s:m=>MP(m,'fluid')+MP(m,'flex')+2},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:1,pack:6+q,filter:1,haul:1})},
+  {k:'Seal Drum',slot:'body',in:[{r:'shell',t:m=>m==='chrome'||MP(m,'hard')>=3,s:m=>MP(m,'hard')},{r:'seal',t:m=>m==='gel'||m==='patch'||(MP(m,'flex')>=2&&MP(m,'organic')>0),s:m=>MP(m,'flex')+MP(m,'organic')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:1,pack:7+q,seal:1,haul:1})},
+  {k:'Cell Rack',slot:'body',in:[{r:'frame',t:m=>MP(m,'hard')>=2,s:m=>MP(m,'hard')},{r:'mount',t:m=>MP(m,'conduct')>=2,s:m=>MP(m,'conduct')},{r:'cable',t:m=>MP(m,'conduct')>=2&&MP(m,'flex')>=1,s:m=>MP(m,'conduct')+MP(m,'flex')}],
+    mk:(p,q)=>({armor:0,pack:8+q,haul:1})},
+  {k:'Badge Case',slot:'body',in:[{r:'shell',t:m=>m==='token'||m==='wafer'||(MP(m,'conduct')>=2&&MP(m,'hard')>=1),s:m=>MP(m,'conduct')+MP(m,'hard')+4},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')},{r:'strap',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({armor:0,pack:5+q,clearance:1,int:q>0?1:0,haul:1})},
   // bone-and-hide tools
   {k:'Pick',slot:'tool',in:[{r:'head',t:m=>MP(m,'hard')>=3,s:m=>MP(m,'hard')*2+MP(m,'sharp')},anyGrip],
     mk:(p,q)=>({tool:{MINE:1.2+MP(p[0],'hard')*.35+q*.2,DIG:1.8,SMASH:1.3}})},
@@ -1653,6 +1700,8 @@ const RECIPES=[
     mk:(p,q)=>({light:1+q,lure:1})},
   {k:'Quiver',slot:'trinket',in:[{r:'sleeve',t:m=>m==='leather'||(MP(m,'flex')>=2&&MP(m,'hard')>=1),s:m=>MP(m,'flex')+MP(m,'hard')},{r:'cord',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
     mk:(p,q)=>({pack:3+q})},
+  {k:'Pouch',slot:'trinket',in:[{r:'pouch',t:m=>m==='leather'||m==='fiber'||(MP(m,'flex')>=2&&MP(m,'hard')>=1),s:m=>MP(m,'flex')+MP(m,'hard')},{r:'cord',t:m=>MP(m,'flex')>=2,s:m=>MP(m,'flex')}],
+    mk:(p,q)=>({pack:2+q})},
   // workshop trinkets
   {k:'Lamp',slot:'trinket',in:[{r:'core',t:m=>MP(m,'lumen')>=2,s:m=>MP(m,'lumen')},{r:'wire',t:m=>MP(m,'conduct')>=2,s:m=>MP(m,'conduct')}],
     mk:(p,q)=>({light:MP(p[0],'lumen')+1+q})},
@@ -1864,8 +1913,15 @@ const DX=[1,-1,0,0], DY=[0,0,1,-1];
 let blk=null,map,decor,explored,vis,lvlCanvas,lights=[],rooms=[],shaftI=0,startRoom,depth=1,lvlSeed=1;
 let actors=[],objs=[],parts=[],floats=[],rings=[],player=null,nextId=1;
 let stats={kills:0,crafts:0,salvaged:0,checks:0,t:0};
-const DBG=Object.assign({levels:16,matrix:8,strength:.2,mono:false,regionLog:true,newsLog:true,pose:true,agentLog:false},(()=>{try{return JSON.parse(localStorage.getItem('mindvessel.debug')||'{}')}catch(e){return{}}})());
-const saveDbg=()=>{try{localStorage.setItem('mindvessel.debug',JSON.stringify(Object.assign({},DBG,{dither:ditherOn})))}catch(e){}};
+const DBG=Object.assign({levels:16,matrix:8,strength:.2,mono:false,regionLog:true,newsLog:true,pose:true,dof:true,dofMax:2.4,agentLog:false},(()=>{try{return JSON.parse(localStorage.getItem('mindvessel.debug')||'{}')}catch(e){return{}}})());
+// Art bible: Canvas 2D lock (no mesh-3D). Keep pose + dither + restrained set DoF.
+delete DBG.view3d;
+if(DBG.matrix!==0&&DBG.matrix!==2&&DBG.matrix!==4&&DBG.matrix!==8)DBG.matrix=8;
+if(DBG.levels<2||DBG.levels>16)DBG.levels=16;
+if(DBG.pose==null)DBG.pose=true;
+if(DBG.dof==null)DBG.dof=true;
+if(DBG.dofMax==null||DBG.dofMax<0)DBG.dofMax=2.4;
+const saveDbg=()=>{try{const o=Object.assign({},DBG,{dither:ditherOn});delete o.view3d;localStorage.setItem('mindvessel.debug',JSON.stringify(o))}catch(e){}};
 let paused=false,speed=1,ditherOn=DBG.dither!==false,verbose=false,dlgOpen=false,dlgCb=null;
 let deathT=-1,deathCause='',shake=0,hurtFlash=0,visT=0,gameTime=0;
 // #region agent log
@@ -2163,7 +2219,7 @@ function genLevel(nbIds,site){
     if(R()<.5){hz();vt()}else{vt();hz()}mark(x,y)};
   for(let i=1;i<rooms.length;i++)carve(rooms[i-1],rooms[i]);
   for(let i=0;i<extraLinks;i++)carve(PICK(rooms),PICK(rooms));
-  startRoom=rooms[RI(0,rooms.length-1)];
+  startRoom=PICK(rooms);
   exits=[];
   // place one duct per neighbour on a unique floor tile (old forEach collapsed many nbs onto one room)
   ensureExits(site,nbIds);
@@ -2343,7 +2399,7 @@ function isIsolated(site){return!site||openNb(site).length<=1}
 function hasClearance(a){
   if(!a)return false;
   const eq=a.equip||{};
-  if((eq.trinket&&eq.trinket.st&&eq.trinket.st.clearance)||(eq.tool&&eq.tool.st&&eq.tool.st.clearance))return true;
+  if((eq.trinket&&eq.trinket.st&&eq.trinket.st.clearance)||(eq.tool&&eq.tool.st&&eq.tool.st.clearance)||(eq.body&&eq.body.st&&eq.body.st.clearance))return true;
   if((a.inv&&(a.inv.clearance||0)>0))return true;
   if(objs&&objs.some(o=>o.sub==='badge'&&stationLive(o)&&Math.hypot(o.x+.5-a.x,o.y+.5-a.y)<3.5))return true;
   return false;
@@ -2385,6 +2441,13 @@ function unexploredFor(a,i){
   // after enough dwell, told tiles are explore targets again (Pass 4H)
   if((a.siteT||0)>=dwell*.55)return true;
   return false;
+}
+// TRAVEL only needs a yes/no "is the pocket done?" — cache *true* ~0.75s (avoids flooding lim
+// tiles every think). Never cache false: gameTime=0 freshness and fog-fill both went stale.
+function exploredOutCached(a,lim){
+  if(a._exOut===true&&a._exOutLim===lim&&a._exOutAt!=null&&gameTime-a._exOutAt<.75)return true;
+  const v=!bfs(a.x|0,a.y|0,i=>unexploredFor(a,i)&&!isBad(a,'t'+i),lim);
+  a._exOut=v;a._exOutAt=gameTime;a._exOutLim=lim;return v;
 }
 function envStep(dt,site){
   envT+=dt;if(envT<.5)return;const k=envT;envT=0;const cm=cycleMul();
@@ -2495,7 +2558,7 @@ function genBase(b,spread){const o={};for(const k of STATS)o[k]=b;for(let i=0;i<
 function makeActor(o){
   const a={id:nextId++,faction:o.faction,x:o.x+.5,y:o.y+.5,comp:o.comp,base:o.base,lvl:o.lvl||1,xp:0,lvlStats:{},bless:{},
     inv:{},food:[],equip:{hand:null,body:null,trinket:null,tool:null},mind:o.mind.slice(),path:null,intent:null,busy:null,
-    cd:R()*.6,thinkT:R()*.3,flash:0,lunge:0,face:1,faceY:0,walkT:0,lastHit:0,dead:false,exT:null,wT:null,
+    cd:R()*.6,thinkT:R()*.9,flash:0,lunge:0,face:1,faceY:0,walkT:0,lastHit:0,dead:false,exT:null,wT:null,
     role:o.role||null,focus:{},civ:null,home:null,age:o.age||0,gen:o.gen||1,breedCd:RI(20,50),scared:0,stuck:0,maxEnergy:100,energy:o.energy==null?80:o.energy};
   if(a.comp.religion==='Polyscape')a.poly=PICK(STATS);
   recalc(a);a.hp=a.maxHp;return a;
@@ -2537,25 +2600,26 @@ function recalc(a){
   if(a.poly)add({[a.poly]:1},'Polyscape (faith)');
   add(a.lvlStats,'levels');add(a.bless,'blessings & curses');
   for(const t of a.mind)add(TH[t].pas,TH[t].n+' (thought)');
-  const tr=a.equip.trinket;const deckOff=tr&&tr.st&&tr.st.lease&&!(onGrid(a)||(a.inv.cell||0)>0);
+  const tr=a.equip.trinket;const bodPre=a.equip.body;const deckOff=tr&&tr.st&&tr.st.lease&&!(onGrid(a)||(a.inv.cell||0)>0);
   if(tr&&tr.st&&tr.st.wis)add({WIS:tr.st.wis},tr.name);
   if(tr&&tr.st&&tr.st.int&&!deckOff)add({INT:tr.st.int},tr.name);
+  if(bodPre&&bodPre.st&&bodPre.st.int)add({INT:bodPre.st.int},bodPre.name);
   for(const k of STATS)s[k]=Math.max(1,s[k]);
   a.st=s;a.src=src;
   const sp=C.species,cls=C.cls,w=a.equip.hand;
   a.maxHp=a.faction==='player'&&!a.follower?8+s.END*3+a.lvl*3:4+s.END*2+a.lvl*3+(sp==='Safeguard'?10:0);
   const exo=a.equip.body&&a.equip.body.st&&a.equip.body.st.exo,live=!!(exo&&(onGrid(a)||(a.inv.cell||0)>0));
-  a.speed=(1.5+s.SPD*.12)*(cls==='Explorer'?1.15:1)*(a.faction==='player'&&!a.follower?1:.85)*(a.mind.some(t=>TH[t].slow)?.85:1)*(exo&&!live?.75:1);
-  a.vision=3.5+s.WIS*.3+(sp==='Spirit'?2:0)+a.mind.reduce((v,t)=>v+(TH[t].vision||0),0)+(tr&&tr.st&&tr.st.light&&fuelCount(a)>0&&!deckOff?tr.st.light*.6:0)+(tr&&tr.st&&tr.st.optic?1.2:0);
+  const bod=a.equip.body,burden=(bod&&bod.st&&bod.st.burden)||0;
+  a.speed=(1.5+s.SPD*.12)*(cls==='Explorer'?1.15:1)*(a.faction==='player'&&!a.follower?1:.85)*(a.mind.some(t=>TH[t].slow)?.85:1)*(exo&&!live?.75:1)*(burden?1-burden*.08:1);
+  a.vision=3.5+s.WIS*.3+(sp==='Spirit'?2:0)+a.mind.reduce((v,t)=>v+(TH[t].vision||0),0)+(tr&&tr.st&&tr.st.light&&fuelCount(a)>0&&!deckOff?tr.st.light*.6:0)+(bod&&bod.st&&bod.st.light&&fuelCount(a)>0?bod.st.light*.5:0)+(tr&&tr.st&&tr.st.optic?1.2:0);
   if(KIND[sp]&&KIND[sp].k==='flora')a.speed=0;
   if(KIND[sp]&&KIND[sp].huge&&KIND[sp].k==='fauna')a.speed*=.62;
   if(KIND[sp]&&KIND[sp].hpMul)a.maxHp=Math.round(a.maxHp*KIND[sp].hpMul);
   if(a.asleep)a.speed=0;
-  const bod=a.equip.body;
   a.armor=(bod&&bod.st?bod.st.armor:0)+(sp==='Crab'||sp==='Rustmite'?1:0)+(KIND[sp]&&KIND[sp].armor||0)+(C.sign==='Shield'?1:0)+(sp==='Safeguard'?2:0)+((a.brandT||0)>gameTime?1:0);
   a.dmg=(w&&w.st?w.st.dmg:1)+Math.floor(s.STR/2)+(cls==='Warrior'?1:0);
   const wt=w&&w.st&&w.st.wt||1,pen=!w?1:live?1:1+(wt-1)*.12*(exo?2:1);
-  a.cdMax=Math.max(.35,(1.2-s.AGI*.04)*pen*(sp==='Synthetic'?.8:1));
+  a.cdMax=Math.max(.35,(1.2-s.AGI*.04)*pen*(sp==='Synthetic'?.8:1)*(burden?1+burden*.06:1));
   a.dodge=(sp==='Ghost'?.25:0)+(sp==='Fishsnake'?.15:0);
   a.crit=s.LCK*.015;
   a.mindCap=8+Math.floor(s.WIS/4)+(sp==='Ancestral'?1:0)+(cls==='Shaman'?1:0)+(C.culture==='Dividual'?1:0);
@@ -2587,7 +2651,7 @@ function gearVal(g,a,hold){if(!g)return 0;if(!g.st)fixGear(g);const s=g.st;if(!s
     else if(s.brand&&a&&liquidFuel(a)>0)d+=2;
     if(s.reach)d+=.5;
     return d/(1+(s.wt-1)*.12)}
-  if(g.slot==='body'){let v=(s.armor||0)*1.6;if(s.shield)v+=1.2;if(s.mesh&&a&&RG&&RG.sites&&RG.sites[RG.cur]&&RG.sites[RG.cur].res.power>=.6)v+=2;if(s.exo&&a&&(onGrid(a)||(a.inv.cell||0)>0))v+=4;if(s.pack)v+=s.pack*.15;if(s.seal)v+=1;if(s.filter)v+=.5;return v}
+  if(g.slot==='body'){let v=(s.armor||0)*1.6;if(s.shield)v+=1.2;if(s.mesh&&a&&RG&&RG.sites&&RG.sites[RG.cur]&&RG.sites[RG.cur].res.power>=.6)v+=2;if(s.exo&&a&&(onGrid(a)||(a.inv.cell||0)>0))v+=4;if(s.pack)v+=s.pack*(s.haul?.18:.15);if(s.burden)v-=s.burden*.4;if(s.seal)v+=1;if(s.filter)v+=.5;if(s.clearance)v+=2;if(s.int)v+=s.int*2;if(s.light)v+=s.light*.8;return v}
   if(g.slot==='trinket')return(s.int||0)*3+(s.clearance?2:0)+(s.light?s.light*1.2:0)+(s.wis||0)*3+(s.optic?2:0)+(s.suppress?1.5:0)+(s.filter?1.5:0)+(s.mask?1:0)+(s.heal?s.heal:0)+(s.radio?2:0)+(s.lure?1.5:0)+(s.pack?s.pack*.15:0);if(g.slot==='tool'){let v=Object.values(s.tool||{}).reduce((a,v)=>a+v,0);if(s.grind)v+=s.grind;if(s.build)v+=s.build;if(s.snare)v+=1;if(s.weld)v+=1;if(s.lance)v+=1;return v}return 0}
 function gearDesc(g){const s=g.st;if(g.slot==='tool'){const bits=Object.entries(s.tool||{}).map(([k,v])=>k.toLowerCase()+' x'+v.toFixed(1));if(s.grind)bits.push('grind x'+s.grind.toFixed(1));if(s.build)bits.push('build x'+s.build.toFixed(1));if(s.snare)bits.push('snares');if(s.weld)bits.push('welds');if(s.lance)bits.push('lance');return bits.join(', ')}
   if(s.arc)return`dmg ${s.dmg}, weight ${s.wt}, bites on a live line`;
@@ -2608,6 +2672,7 @@ function gearDesc(g){const s=g.st;if(g.slot==='tool'){const bits=Object.entries(
   if(s.exo)return`armor ${s.armor}, frame drinks a cell, braces a heavy gun`;
   if(s.mesh)return`armor ${s.armor}, grounds a line`;
   if(s.shield)return`armor ${s.armor}, blocks a blow`;
+  if(s.haul){const bits=[`pack +${s.pack||0}`];if(s.armor)bits.unshift(`armor ${s.armor}`);if(s.burden)bits.push('heavy');if(s.filter)bits.push('filters');if(s.seal)bits.push('sealed');if(s.light)bits.push('light +'+s.light);if(s.clearance)bits.push('clearance');if(s.int)bits.push('INT +'+s.int);return bits.join(', ')}
   if(s.seal)return`armor ${s.armor}, sealed vs thorns`;
   if(s.pack)return`armor ${s.armor}, pack +${s.pack}`;
   if(g.slot==='hand')return`dmg ${s.dmg}, weight ${s.wt}`;if(g.slot==='body'){const bits=[`armor ${s.armor}`];if(s.filter)bits.push('filters');return bits.join(', ')}const bits=[];if(s.clearance)bits.push('clearance');if(s.int)bits.push('INT +'+s.int);if(s.wis)bits.push('WIS +'+s.wis);if(s.optic)bits.push('optic');if(s.suppress)bits.push('suppressor');if(s.filter)bits.push('filter');if(s.mask)bits.push('mask');if(s.heal)bits.push('heals x'+s.heal.toFixed(1));if(s.radio)bits.push('radio');if(s.lure)bits.push('lure');if(s.light)bits.push('light +'+s.light);if(s.pack)bits.push('pack +'+s.pack);if(s.lease)bits.push('dark off the grid without a cell');return bits.join(', ')||'trinket'}
@@ -2707,13 +2772,22 @@ function markBad(a,it){
   // never ban duct tiles — corridor path fails were softlocking Wayfarer into "nothing applies"
   if(it&&(it.act==='travel'||(it.tile!=null&&exits&&exits.some(e=>e.i===it.tile))))return;
   if(!a.bad)a.bad=new Map();const k=it.ent?(it.ent.k?'o'+it.ent.id:'a'+it.ent.id):'t'+it.tile;a.bad.set(k,gameTime+30);if(it.target!=null)a.bad.set('t'+it.target,gameTime+30);
+  if(a.bad.size>40)for(const[id,t]of a.bad)if(t<=gameTime)a.bad.delete(id);
 }
 function pathTo(a,tx,ty,lim){
   const ti=idx(tx,ty);if(bfs(a.x|0,a.y|0,i=>i===ti,lim))return true;
   if(!walk(tx,ty))return!!bfs(a.x|0,a.y|0,i=>{const x=i%MW,y=(i/MW)|0;return Math.abs(x-tx)+Math.abs(y-ty)===1},lim);
   return false;
 }
-function pathToDuct(a,e,lim){return pathTo(a,e.i%MW,(e.i/MW)|0,lim==null?900:lim)}
+// TRAVEL filtered the same ducts 2–4× per think (onward/reach/relief/board) — memo for this actor+tick.
+let _ductPathMemo=null,_ductPathAt=-1,_ductPathId=null;
+function pathToDuct(a,e,lim){
+  lim=lim==null?900:lim;
+  const id=a&&a.id!=null?a.id:-1;
+  if(_ductPathId!==id||_ductPathAt!==gameTime){_ductPathMemo=new Map();_ductPathId=id;_ductPathAt=gameTime}
+  const k=e.i+':'+lim;if(_ductPathMemo.has(k))return _ductPathMemo.get(k);
+  const v=pathTo(a,e.i%MW,(e.i/MW)|0,lim);_ductPathMemo.set(k,v);return v;
+}
 function edgeKey(a,b){return a<b?a+':'+b:b+':'+a}
 /** Duct edge A↔B cooling — bans both directions so a silent wait cannot resume the bounce. */
 function soleDuctRelief(to){
@@ -2786,7 +2860,7 @@ function travelEscape(to){
 }
 function travelBackOk(to){
   if(to==null)return false;
-  if(pathDuctRelief(to))return true;
+  // pathDuctRelief is multi-bfs — only on the deny paths (was first-line → every TRAVEL cand paid)
   if(hopBanned(to))return travelEscape(to)||pathDuctRelief(to);
   if(RG&&RG.prev!=null&&to===RG.prev){
     const a=player,dwell=siteDwell(RG.sites[RG.cur]);
@@ -2860,7 +2934,7 @@ function supplyWant(a){
     if(hw.inject)preds.push(m=>m==='serum'||m==='gel');
     if(hw.gun)preds.push(m=>hw.coil?MP(m,'conduct')>=2&&m!=='cell':MP(m,'sharp')>=2||MP(m,'hard')>=3)}
   if(a.equip.body&&a.equip.body.st.exo)preds.push(m=>m==='cell');
-  if(a.equip.trinket&&a.equip.trinket.st.light)preds.push(m=>m==='oil'||m==='fuel'||m==='char'||m==='tallow'||m==='cell');
+  if((a.equip.trinket&&a.equip.trinket.st.light)||(a.equip.body&&a.equip.body.st&&a.equip.body.st.light))preds.push(m=>m==='oil'||m==='fuel'||m==='char'||m==='tallow'||m==='cell');
   if(a===player&&!a.equip.tool)preds.push(m=>MP(m,'hard')>=3,m=>MP(m,'sharp')>=2);
   if(a===player&&!a.equip.hand)preds.push(m=>MP(m,'sharp')>=2,m=>MP(m,'weight')>=2);
   if(a===player&&!a.equip.body)preds.push(m=>MP(m,'hard')>=2,m=>MP(m,'flex')>0);
@@ -2931,7 +3005,7 @@ function condWhy(a,w){
 const cond=(a,w)=>!w||!condWhy(a,w);
 const isPlayer=a=>a===player;
 const VERB={
-  FIGHT(a,p){if(blocked(a,'FIGHT'))return null;const hs=seenWhere(a,p.r==null?a.vision:Math.min(p.r,a.vision+6),b=>wants(a,b));if(!hs.length)return null;return swing(a,hs[0])},
+  FIGHT(a,p){if(blocked(a,'FIGHT'))return null;const hs=seenWhere(a,p.r==null?a.vision:Math.min(p.r,a.vision+6),b=>wants(a,b));if(!hs.length)return null;return swing(a,hs[0],a.hidden?1:0)},
   HUNT(a,p){
     if(blocked(a,'HUNT'))return null;
     const ok=b=>{
@@ -2943,14 +3017,17 @@ const VERB={
     };
     // player: only hunt what is in sight — range-only picks walked into fog forever
     if(a===player){
+      // crouched in dark: only strike in reach (don't path out of an AMBUSH wait)
+      const crouch=a.hidden&&typeof isDark==='function'&&isDark(a);
       for(const b of seenWhere(a,a.vision+1,ok)){
-        if(footDist(a.x,a.y,b)<2.4||pathTo(a,b.x|0,b.y|0,560))return swing(a,b);
+        if(footDist(a.x,a.y,b)<2.4)return swing(a,b,a.hidden?1:0);
+        if(!crouch&&pathTo(a,b.x|0,b.y|0,560))return swing(a,b,a.hidden?1:0);
       }
       return null;
     }
     let best=null,bd=a.vision+3;
     for(const b of actors){if(!ok(b)||!los(a.x|0,a.y|0,b.x|0,b.y|0))continue;const d=Math.hypot(b.x-a.x,b.y-a.y);if(d<bd){bd=d;best=b}}
-    return best?swing(a,best):null;
+    return best?swing(a,best,a.hidden?1:0):null;
   },
   FLEE(a){if(blocked(a,'FLEE'))return null;const hs=seenThreats(a,6);if(!hs.length)return null;const t=fleeTarget(a,hs);return t<0?null:{tile:t,range:.3,lab:'away from '+aname(hs[0])}},
   AVOID(a,p){const hs=seenThreats(a,p.r);if(!hs.length)return null;const t=fleeTarget(a,hs);return t<0?null:{tile:t,range:.3,lab:'distance'}},
@@ -3011,10 +3088,26 @@ const VERB={
       if(r.heat){
         if(r.fam==='CURE'&&nearDry())return{self:1,act:'refine',rec:r,lab:'curing'};
         if(HEAT[here]>=r.heat)return{self:1,act:'refine',rec:r,lab:REFINE_N[r.fam]};
-        if(r.fam==='CURE'){const d=nearestObj(a,o=>o.sub==='dryrack',14);if(d)return{ent:d,range:1.4,lab:'a drying rack'}}
-        const t=bestTileNear(a,16,i=>HEAT[i]>=r.heat?1-DEP[i]*.01:-1);if(t.v>0)return{tile:t.i,range:.4,lab:'heat to '+r.fam.toLowerCase()};continue}
+        if(r.fam==='CURE'){const d=nearestObj(a,o=>o.sub==='dryrack',14);if(d){
+          // already beside the rack → refine (don't keep returning a walk-only intent)
+          if(Math.hypot(d.x+.5-a.x,d.y+.5-a.y)<=1.4)return{self:1,act:'refine',rec:r,lab:'curing'};
+          return{ent:d,range:1.4,lab:'a drying rack'}}
+        }
+        const t=bestTileNear(a,16,i=>HEAT[i]>=r.heat?1-DEP[i]*.01:-1);
+        if(t.v>0){
+          // on/at the heat tile → refine; else approach (manual uses this as a beacon)
+          if(here===t.i||Math.hypot((t.i%MW)+.5-a.x,((t.i/MW)|0)+.5-a.y)<=.45)return{self:1,act:'refine',rec:r,lab:REFINE_N[r.fam]};
+          return{tile:t.i,range:.4,lab:'heat to '+r.fam.toLowerCase()};
+        }
+        continue}
       if(r.power){const pw=i=>{const x=i%MW,y=(i/MW)|0;for(let d=0;d<4;d++){const X=x+DX[d],Y=y+DY[d];if(X<0||Y<0||X>=MW||Y>=MH)continue;const j=idx(X,Y);const def=blockAt(j);if(def&&def.power&&POWER[j]>=.3)return true}return false};
-        if(pw(here))return{self:1,act:'refine',rec:r,lab:'charging'};const t=bestTileNear(a,16,i=>pw(i)?1-DEP[i]*.01:-1);if(t.v>0)return{tile:t.i,range:.4,lab:'a live conduit'};continue}
+        if(pw(here))return{self:1,act:'refine',rec:r,lab:'charging'};
+        const t=bestTileNear(a,16,i=>pw(i)?1-DEP[i]*.01:-1);
+        if(t.v>0){
+          if(here===t.i||Math.hypot((t.i%MW)+.5-a.x,((t.i/MW)|0)+.5-a.y)<=.45)return{self:1,act:'refine',rec:r,lab:'charging'};
+          return{tile:t.i,range:.4,lab:'a live conduit'};
+        }
+        continue}
       return{self:1,act:'refine',rec:r,lab:REFINE_N[r.fam]};
     }
     return null;
@@ -3105,7 +3198,7 @@ const VERB={
     let known=exits.filter(e=>!isBad(a,'t'+e.i));
     // dwell only while there is still ground to cover; once explored, leave without waiting out the timer
     // (do not key off a.exT — a leftover explore tile made TRAVEL pretend the pocket was still open)
-    const exploredOut=!bfs(a.x|0,a.y|0,i=>unexploredFor(a,i)&&!isBad(a,'t'+i),idleLeave?900:480);
+    const exploredOut=exploredOutCached(a,idleLeave?900:480);
     const needGo=!!(a.stationNeed&&a.stationNeed>gameTime)||!!stationHungry(a)||isIsolated(s)||(s.phase==='collapse'&&(a.siteT||0)>14);
     if(needGo&&stationHungry(a)&&!(a.stationNeed>gameTime))noteStationNeed('starving station');
     const dwell=siteDwell(s);
@@ -3117,48 +3210,52 @@ const VERB={
     const ductLim=idleLeave?1400:900;
     const minBack=Math.max(28,Math.min(48,(dwell||40)*.75));
     let cands=known;
-    // finished pocket with other exits: drop the return duct immediately (no visited/siteT wait — that only masked missing onward picks)
-    // never drop the last duct — sole return + exploredOut was emptying cands → silent Mind
+    // Prefer onward when the pocket is done — do NOT path-filter every duct up front
+    // (old onwardReach+reach+fall did 2–4× pathToDuct per think → ~25ms spikes).
     const onward=cands.filter(e=>e.to!==RG.prev);
-    if(exploredOut&&onward.length){
-      // only prefer onward that we can actually board (ensureExits can put ducts on sealed-deck islands)
-      const onwardReach=onward.filter(e=>pathToDuct(a,e,ductLim));
-      cands=onwardReach.length?onwardReach:onward;
-    }else if(exploredOut&&RG.prev!=null&&!soleDuctRelief(RG.prev)){
-      const kept=cands.filter(e=>e.to!==RG.prev||soleDuctRelief(e.to)||pathDuctRelief(e.to));
+    if(exploredOut&&onward.length)cands=onward;
+    else if(exploredOut&&RG.prev!=null&&!soleDuctRelief(RG.prev)){
+      const kept=cands.filter(e=>e.to!==RG.prev||soleDuctRelief(e.to));
       if(kept.length)cands=kept;
     }
-    cands=cands.filter(e=>travelBackOk(e.to)||soleDuctRelief(e.to)||pathDuctRelief(e.to));
-    // drop dead-end done sites unless every duct is one (then must transit)
+    // Cheap policy filter first; pathDuctRelief (multi-bfs) only as last resort below.
+    {const soft=cands.filter(e=>travelBackOk(e.to)||soleDuctRelief(e.to));if(soft.length)cands=soft}
     {const live=cands.filter(e=>!(siteDone(e.to)&&frontierValue(s.id,e.to,10)<-3));if(live.length)cands=live}
+    if(!cands.length)cands=known;
     if(!cands.length)return null;
-    // prefer fully pathable ducts; else walk toward the best duct (UI already showed the name)
-    let reach=cands.filter(e=>pathToDuct(a,e,ductLim));
-    // onward-only left unreachable fog ducts — fall back to any pathable exit (usually the return)
-    if(!reach.length){
-      const fall=known.filter(e=>pathToDuct(a,e,ductLim)&&(travelBackOk(e.to)||soleDuctRelief(e.to)||pathDuctRelief(e.to)));
-      if(fall.length){cands=fall;reach=fall}
-    }
-    let best=null,bv=-1e9,seekStep=null;
     const scoreE=e=>{let v=travelScore(RG.sites[e.to],p.to,s);if(v>-1e8&&a.travelTo===e.to)v+=.5;return v};
-    const pool=reach.length?reach:cands;
-    for(const e of pool){const v=scoreE(e);if(v<=-1e8&&reach.length)continue;if(v>bv||(v===bv&&!best)){bv=v;best=e}}
-    if(!best||(bv<=-1e8&&!idleLeave)){
+    const frontierScore=e=>{
+      const o=RG.sites[e.to],front=frontierValue(s.id,e.to,10);
+      return(o.visited?0:3.5)+front*.7+(o.tier>s.tier?.8:o.tier===s.tier?.35:-.15*(s.tier-o.tier))
+        -(e.to===RG.prev?2.5:0)-(o.lastVisit!=null&&RG.tick-o.lastVisit<80?1:0)+(a.travelTo===e.to?.5:0)
+        +(siteDone(e.to)&&front<1?-5:0);
+    };
+    // Score-sort, then path-check until one boards (memoized). Seek the best unreachable only if none path.
+    const ranked=cands.slice().sort((p,q)=>scoreE(q)-scoreE(p));
+    let best=null,bv=-1e9,seekStep=null,reachN=0,unreach=null,unreachV=-1e9;
+    const tryPick=(list,useFront)=>{
+      for(const e of list){
+        const v=useFront?frontierScore(e):scoreE(e);
+        if(v<=-1e8&&!idleLeave&&!useFront)continue;
+        if(!(travelBackOk(e.to)||soleDuctRelief(e.to)||pathDuctRelief(e.to)))continue;
+        if(pathToDuct(a,e,ductLim)){best=e;bv=v;reachN++;return true}
+        if(v>unreachV){unreachV=v;unreach=e}
+      }
+      return false;
+    };
+    if(!tryPick(ranked,false)){
       if(p.to==='mark'||p.to==='safety'||p.to==='news'||p.to==='remains'||p.to==='power'||p.to==='crew'||p.to==='rite'||p.to==='rival')return null;
       if(p.to==='plenty'||p.to==='kin'){
         if(!restless&&(!exploredOut||(a.siteT||0)<minBack))return null;
       }
-      // always pick a duct by frontier — never sit silent waiting for a timer to expire
-      bv=-1e9;best=null;
-      for(const e of cands){
-        const o=RG.sites[e.to];
-        const front=frontierValue(s.id,e.to,10);
-        let v=(o.visited?0:3.5)+front*.7+(o.tier>s.tier?.8:o.tier===s.tier?.35:-.15*(s.tier-o.tier))
-          -(e.to===RG.prev?2.5:0)-(o.lastVisit!=null&&RG.tick-o.lastVisit<80?1:0)+(a.travelTo===e.to?.5:0)
-          +(siteDone(e.to)&&front<1?-5:0);
-        if(v>bv){bv=v;best=e}
+      // policy scores empty / unreachable — pick by frontier, still lazy path
+      const byFront=cands.slice().sort((p,q)=>frontierScore(q)-frontierScore(p));
+      if(!tryPick(byFront,true)&&onward.length&&cands!==known){
+        // onward-only left fog-island ducts — fall back to any known exit
+        tryPick(known.slice().sort((p,q)=>scoreE(q)-scoreE(p)),false);
       }
     }
+    if(!best)best=unreach,bv=unreachV;
     if((p.to==='plenty'||p.to==='kin')&&bv>-1e8&&!exploredOut&&!idleGo&&!idleLeave){const r=dietOf(a).res;const here=p.to==='plenty'?s.res[r]:(s.civ&&!s.civ.grudge&&!civAggressive(s.civ)?[...a.mind].filter(t=>s.civ.memes.has(t)).length+.2:-1);if(bv<=here+.15&&!(a.focus.all>patience(a)))return null}
     if(best&&!travelBackOk(best.to)&&!soleDuctRelief(best.to)&&!pathDuctRelief(best.to))return null;
     if(!best)return null;
@@ -3182,7 +3279,7 @@ const VERB={
     }
     a.travelTo=best.to;
     // #region agent log
-    if(!(a._dbgTravelAt>gameTime-.8)){a._dbgTravelAt=gameTime;_dbgLog('G','TRAVEL:go','travel intent',{to:best.to,name:RG.sites[best.to].name,pol:p.to,siteT:a.siteT,exploredOut,focus:a.focus&&a.focus.all,pat:patience(a),bv,ducts:cands.length,reach:reach.length,seek:seekStep,idleT:a.idleT||0,sealed})}
+    if(!(a._dbgTravelAt>gameTime-.8)){a._dbgTravelAt=gameTime;_dbgLog('G','TRAVEL:go','travel intent',{to:best.to,name:RG.sites[best.to].name,pol:p.to,siteT:a.siteT,exploredOut,focus:a.focus&&a.focus.all,pat:patience(a),bv,ducts:cands.length,reach:reachN,seek:seekStep,idleT:a.idleT||0,sealed})}
     // #endregion
     if(canBoard)return{tile:best.i,range:1.15,act:'travel',to:best.to,lab:RG.sites[best.to].name,v:'TRAVEL'};
     // step toward the duct the Mind already named — do not stand silent while the label points off-screen
@@ -3224,7 +3321,7 @@ const VERB={
     let best=null,bd=8;for(const b of actors){if(b.dead||b.faction==='player'||b.civ||b.construct||b.flora||wants(b,a)||b.tameFail>gameTime)continue;const m=foodFor(a,b);if(!m)continue;const d=Math.hypot(b.x-a.x,b.y-a.y);if(d<bd&&vis[idx(b.x|0,b.y|0)]){bd=d;best=b}}
     return best?{ent:best,range:2.2,act:'tame',lab:aname(best)}:null;
   },
-  PROTECT(a){const fs=followers();if(!fs.length)return null;const t=seenWhere(a,a.vision,b=>b.faction!=='player'&&fs.some(f=>wants(b,f)||(f.lastAttacker===b&&f.lastHit>0)))[0];return t?swing(a,t):null},
+  PROTECT(a){const fs=followers();if(!fs.length)return null;const t=seenWhere(a,a.vision,b=>b.faction!=='player'&&fs.some(f=>wants(b,f)||(f.lastAttacker===b&&f.lastHit>0)))[0];return t?swing(a,t,a.hidden?1:0):null},
   PACIFY(a){const t=seenThreats(a,7).find(b=>b.role==='predator'&&foodFor(a,b));return t?{self:1,act:'pacify',ent:t,lab:aname(t)}:null},
   TRADE(a){
     if(a!==player)return NPCV.TRADE(a);if(Object.values(a.inv).reduce((s,v)=>s+v,0)<2)return null;
@@ -3448,13 +3545,17 @@ const VERB={
     if(a.energy>=a.maxEnergy*.97)return null;
     const here=idx(a.x|0,a.y|0);if(HEAT[here]>=.3)return{self:1,act:'absorb',lab:'the coals'};
     const r=bestTileNear(a,a===player?16:9,i=>HEAT[i]>=.3?HEAT[i]-DEP[i]*.02:-1);
-    return r.v>0?{tile:r.i,range:.4,lab:'a fire'}:null;
+    if(r.v<=0)return null;
+    if(here===r.i||Math.hypot((r.i%MW)+.5-a.x,((r.i/MW)|0)+.5-a.y)<=.45)return{self:1,act:'absorb',lab:'the coals'};
+    return{tile:r.i,range:.4,lab:'a fire'};
   },
   DRINK(a){
     if(a.energy>=a.maxEnergy*.97)return null;
     const here=idx(a.x|0,a.y|0);if(ECHO[here]>=.08)return{self:1,act:'absorb',lab:'echoes'};
     const r=bestTileNear(a,a===player?16:9,i=>ECHO[i]>=.08?ECHO[i]-DEP[i]*.02:-1);
-    return r.v>0?{tile:r.i,range:.4,lab:'echoes'}:null;
+    if(r.v<=0)return null;
+    if(here===r.i||Math.hypot((r.i%MW)+.5-a.x,((r.i/MW)|0)+.5-a.y)<=.45)return{self:1,act:'absorb',lab:'echoes'};
+    return{tile:r.i,range:.4,lab:'echoes'};
   },
 };
 // path through walls toward the unknown: walkable tiles cost nothing, diggable walls stop the search at the first one
@@ -3474,8 +3575,46 @@ function foodFor(a,b){const src=dietOf(b).src;let best=null,bv=0;for(const m in 
 const WORK=new Set(['HIDE','AVOID','AMBUSH','PROTECT','PACIFY','SUPPLY','EXTRACT','DIG','HARVEST','SALVAGE','REFINE','BUTCHER','CULTIVATE','INCUBATE','PATCH','LOOT','CRAFT','BUILD','INVESTIGATE','LISTEN','TRADE','PREACH','TAME','FLOCK','SEEKDARK','SEEKLIGHT','HUNT','TUNNEL','STOW','INSCRIBE','SLICK','DRIVE','SHADOW','SEAL','LAY','BANK','DRINK','REPO','FORAGE','EXPLORE','HOME','WANDER','STUDY','TEND','DISMANTLE','RECRUIT','SIGNAL','MEND','SIFT']);
 // locomotion still allowed when attention is spent (TRAVEL must leave even if a return duct is "known" but hop-banned)
 const ESCAPE=new Set(['EXPLORE','HOME','WANDER','TRAVEL']);
-// verbs that still win while the body needs rest (combat, flee, feed, explicit rest)
-const REST_HOLD=new Set(['FIGHT','HUNT','FLEE','AVOID','HIDE','AMBUSH','PROTECT','INTIMIDATE','THROW','FEED','REST','CAMP','GUARD','GRAZE','BANK','DRINK']);
+// manual play: stick owns locomotion; Mind only auto-acts in range. Flee Thoughts are hidden.
+const DUCT_HOLD_T=1.05;
+const thoughtFleeOnly=tid=>{const T=TH[tid];return !!(T&&T.v.length&&T.v.every(v=>v[0]==='FLEE'||v[0]==='AVOID'))};
+function intentDist(a,it){
+  if(!it||it.self)return 0;
+  if(it.ent){let bd=1e9;const e=it.ent;forFoot(e,(x,y)=>{bd=Math.min(bd,Math.hypot(x+.5-a.x,y+.5-a.y))});return bd}
+  if(it.tile!=null)return Math.hypot((it.tile%MW)+.5-a.x,((it.tile/MW)|0)+.5-a.y);
+  return 99;
+}
+// pure locomotion — Mind never steers these in manual (player walks; beacons via mindOpps where useful)
+const MANUAL_LOCO=new Set(['FLEE','AVOID','WANDER','EXPLORE','HOME','GUARD','SEEKDARK','SEEKLIGHT','FLOCK','HEEL','DRIVE','SHADOW','TRAVEL']);
+function manualWait(r){return !!(r&&r.self&&r.amb&&!r.act)} // AMBUSH crouch: no act, hold hidden
+function manualIntentOk(a,r){
+  if(!r)return false;
+  if(MANUAL_LOCO.has(r.v)||r.act==='travel')return false;
+  if(manualWait(r))return true; // lie in wait — channel until prey steps in or you move
+  if(r.self)return !!r.act;
+  const d=intentDist(a,r),rng=r.range==null?1.2:r.range;
+  if(r.act)return d<=rng;
+  // approach-only that upgrades to an act (REFINE→heat, BANK→fire, HIDE→dark, CURE→rack…)
+  if(r.tile!=null||r.ent)return d<=rng;
+  return false;
+}
+function manualApproach(r){return !!(r&&!r.act&&!r.self&&(r.tile!=null||r.ent)&&!MANUAL_LOCO.has(r.v))}
+function manualDuctWanted(a,to){
+  if(!a||to==null||!exits)return false;
+  const snap={travelTo:a.travelTo,exT:a.exT,bad:a.bad?new Map(a.bad):null,idleT:a.idleT,sim:a._simThink};
+  a._simThink=true;let ok=false;
+  try{
+    for(const tid of a.mind){const T=TH[tid];if(!T)continue;
+      for(const v of T.v){if(v[0]!=='TRAVEL')continue;const p=v[1]||{};
+        if(p.when&&condWhy(a,p.when))continue;
+        const r=VERB.TRAVEL(a,p);if(r&&r.to===to){ok=true;break}}
+      if(ok)break}
+  }finally{a.travelTo=snap.travelTo;a.exT=snap.exT;if(snap.bad)a.bad=snap.bad;a.idleT=snap.idleT;a._simThink=snap.sim}
+  return ok;
+}
+// verbs that still win while the body needs rest
+const REST_HOLD_CORE=new Set(['FIGHT','HUNT','FLEE','AVOID','HIDE','AMBUSH','PROTECT','INTIMIDATE','THROW','REST','CAMP','GUARD']);
+const REST_HOLD_FEED=new Set(['FEED','GRAZE','BANK','DRINK']);
 const REST_NICHE_V={
   survive:['FEED','FORAGE','FLEE','AVOID','REST','CAMP','GRAZE','BANK','DRINK','HIDE'],
   fight:['FIGHT','HUNT','PROTECT','THROW','INTIMIDATE','HIDE','AMBUSH'],
@@ -3483,20 +3622,23 @@ const REST_NICHE_V={
   travel:['TRAVEL','EXPLORE','HOME','WANDER'],
   social:['LISTEN','TRADE','PREACH','STUDY','RECRUIT'],
 };
+// close enough to interrupt a crouch — distant sighted hunters do not
+const REST_THREAT_R=3.2;
+const restPress=(a)=>seenThreats(a,REST_THREAT_R).length>0;
 function restProfile(a){
-  // hpTrig kept strict so innate rest does not constantly yank the vessel off walking work
-  const sp=a.comp&&a.comp.species,K=sp&&KIND[sp],p={hpTrig:.5,energyTrig:.2,energyMin:15,skip:false,needGrid:false};
+  // innate rest when clearly hurt; Thought REST (Survive / Catch Breath) still fires earlier
+  const sp=a.comp&&a.comp.species,K=sp&&KIND[sp],p={hpTrig:.6,energyTrig:.2,energyMin:15,skip:false,needGrid:false};
   if(!a||a.flora||a.asleep||a.construct||(K&&K.k==='flora'))p.skip=true;
-  if(sp==='Mushroom')p.hpTrig=.6;
-  if(sp==='Skeleton'){p.hpTrig=.45;p.energyTrig=.3}
+  if(sp==='Mushroom')p.hpTrig=.65;
+  if(sp==='Skeleton'){p.hpTrig=.5;p.energyTrig=.3}
   if(sp==='Rig'){p.needGrid=true;p.energyTrig=.25;p.energyMin=12}
-  if(sp==='Ghost'||sp==='Spirit')p.hpTrig=.55;
-  if(a.role==='predator')p.hpTrig=Math.min(p.hpTrig,.45);
+  if(sp==='Ghost'||sp==='Spirit')p.hpTrig=.6;
+  if(a.role==='predator')p.hpTrig=Math.min(p.hpTrig,.5);
   return p;
 }
 function restGates(a){
   const p=restProfile(a);
-  if(p.skip||blocked(a,'REST')||seenThreats(a).length)return false;
+  if(p.skip||blocked(a,'REST')||restPress(a))return false;
   if(a.energy<p.energyMin)return false;
   if(a.hp>=a.maxHp)return false;
   if(p.needGrid&&!onGrid(a)&&!objs.some(o=>(o.sub==='fire'||o.sub==='furnace'||o.sub==='smoke'||o.sub==='digester')&&Math.hypot(o.x+.5-a.x,o.y+.5-a.y)<2.5))return false;
@@ -3506,6 +3648,13 @@ function restNeed(a){
   if(!restGates(a)||(a.restCd||0)>gameTime)return false;
   const p=restProfile(a);
   return a.hp/a.maxHp<p.hpTrig||a.energy/a.maxEnergy<p.energyTrig;
+}
+// when wounded, forage must yield; when only low on energy, feed still wins
+function restHoldOk(a,v){
+  if(REST_HOLD_CORE.has(v))return true;
+  if(!REST_HOLD_FEED.has(v))return false;
+  const p=restProfile(a);
+  return a.hp/a.maxHp>=p.hpTrig;
 }
 const patience=a=>{let p=90+a.st.WIS*12+(a.mind.some(t=>TH[t].patience)?40:0);
   if(typeof cycleMul==='function'){const cm=cycleMul();if(cm<.55)p*=.82;else if(cm>1.25)p*=1.08;if(typeof cyc!=='undefined'&&cyc.sq>.65)p*=.88}
@@ -3597,15 +3746,22 @@ function npreach(a,b){
 function think(a){
   a._thr=null;a._thr=seenWhere(a,a.vision,b=>wants(b,a));
   const need=!a._simThink&&restNeed(a);
+  const man=a===player&&MANUAL&&!a._simThink;
   const tr=a===player&&!a._simThink?[]:null;let res=null;
   for(const tid of a.mind){const T=TH[tid],row=tr?{tid,verbs:[]}:null;if(tr)tr.push(row);
+    if(man&&thoughtFleeOnly(tid)){if(row)row.state='below';continue}
     if(res){if(row)row.state='below';continue}
     for(const v of T.v){const p=v[1]||{};
       if(p.when){const why=condWhy(a,p.when);if(why){if(row)row.verbs.push({v:v[0],st:'x',why});continue}}
       if(a===player&&WORK.has(v[0])&&(a.focus.all||0)>patience(a)&&!ESCAPE.has(v[0])){if(row)row.verbs.push({v:v[0],st:'p',why:'attention spent here'});continue}
+      if(man&&(v[0]==='FLEE'||v[0]==='AVOID')){if(row)row.verbs.push({v:v[0],st:'-',why:'you steer'});continue}
       const r=VERB[v[0]](a,p);
       if(r){
-        if(need&&!REST_HOLD.has(v[0])){if(row)row.verbs.push({v:v[0],st:'-',why:'rest needed'});continue}
+        if(need&&!restHoldOk(a,v[0])){if(row)row.verbs.push({v:v[0],st:'-',why:'rest needed'});continue}
+        if(man){const rr=Object.assign({v:v[0]},r);
+          if(!manualIntentOk(a,rr)){if(row)row.verbs.push({v:v[0],st:'-',why:v[0]==='TRAVEL'||r.act==='travel'?'hold on duct':(manualApproach(rr)?'walk here':'out of reach')});continue}
+          // approach in range: keep as run so the vessel finishes the last step / upgrades to act
+        }
         r.th=tid;r.v=v[0];res=r;if(row)row.verbs.push({v:v[0],st:'run',why:r.lab||''});break}
       if(row)row.verbs.push({v:v[0],st:'-',why:'nothing to do'});
     }
@@ -3699,12 +3855,13 @@ function composeMind(a){
   }
   a.restMindAt=gameTime+60;
   recalc(a);
+  const changed=prev.length!==a.mind.length||prev.some((t,i)=>a.mind[i]!==t);
   if(a===player){
-    const changed=prev.length!==a.mind.length||prev.some((t,i)=>a.mind[i]!==t);
     save.mind=a.mind.slice();
-    if(changed){mindPulseUntil=realT()+1.15;mindPulseIds=new Set(a.mind.filter((t,i)=>prev[i]!==t));for(const t of a.mind)if(!prev.includes(t))mindPulseIds.add(t)}
+    if(changed){mindPulseUntil=realT()+1.15;mindPulseIds=new Set(a.mind.filter((t,i)=>prev[i]!==t));for(const t of a.mind)if(!prev.includes(t))mindPulseIds.add(t);
+      log(`${a.comp.name} rests. The Mind reshuffles.`,'info')}
     persist();mindSig='';if(typeof renderMind==='function')renderMind();if(typeof renderLib==='function')renderLib();
-  }
+  }else if(changed&&typeof seen==='function'&&seen(a))bark(a,'mind shifts','idea');
   return true;
 }
 
@@ -3724,7 +3881,7 @@ function act(a,it){
     case'eatcorpse':startBusy(a,'eat',.9,()=>eatCorpse(a,it.ent));break;
     case'absorb':startBusy(a,'eat',1,()=>absorb(a));break;
     case'rest':{const camp=it.camp||objs.some(o=>(o.sub==='fire'||o.sub==='furnace'||o.sub==='smoke')&&Math.hypot(o.x+.5-a.x,o.y+.5-a.y)<2.5);
-      startBusy(a,'rest',hasTrait(a,'Insomniac')?1:2,()=>{const mk=a.equip.trinket&&a.equip.trinket.st.heal||1;const h=Math.min(a.maxHp-a.hp,a.maxHp*.2*(a.comp.species==='Mushroom'?1.5:1)*(camp?2:1)*mk,a.energy*2);a.energy-=h*.5;heal(a,h);a.restCd=gameTime+28;composeMind(a);a.intent=null;a.thinkT=0;a.path=null;a.repath=true});break}
+      startBusy(a,'rest',hasTrait(a,'Insomniac')?1.4:2.6,()=>{const mk=a.equip.trinket&&a.equip.trinket.st.heal||1;const h=Math.min(a.maxHp-a.hp,a.maxHp*.2*(a.comp.species==='Mushroom'?1.5:1)*(camp?2:1)*mk,a.energy*2);a.energy-=h*.5;heal(a,h);a.restCd=gameTime+28;composeMind(a);a.intent=null;a.thinkT=0;a.path=null;a.repath=true});break}
     case'extract':{const def=it.floor?floorAt(it.target):blockAt(it.target);if(!def){a.thinkT=0;markBad(a,it);break}
       startBusy(a,'work',(.8+(def.hard||1)*.7)/toolFactor(a,it.how),()=>{const before=packCount(a);if(a.equip.tool&&a.equip.tool.st.lance&&!onGrid(a)&&!useMat(a,'cell')){markBad(a,it);return}extract(a,it.target,it.floor,it.how);if(it.dig){const s=RG.sites[RG.cur];s.dug=(s.dug||0)+1}if(packCount(a)<=before)markBad(a,it)});break}
     case'refine':{const g=(a.equip.tool&&a.equip.tool.st.grind)||1;const t=it.rec.fam==='GRIND'?it.rec.t/g:it.rec.t;startBusy(a,'work',t,()=>refine(a,it.rec));break}
@@ -4526,11 +4683,16 @@ const PH_AIR={primordial:{tint:'rgba(40,90,110,.07)',mote:['#9ad8d0','#c8f0e8'],
   complex:{tint:'rgba(170,130,60,.08)',mote:['#ffe6a0','#e0a040','#9ad8d0'],rate:5,vy:-3,g:-1,glint:1},
   collapse:{tint:'rgba(70,60,55,.16)',mote:['#6a6460','#4a4440','#8a8078'],rate:9,vy:10,g:5}};
 let arrivalFeel=0;
+const PARTS_CAP=480,PARTS_DRAW=220,PARTS_AMBIENT=280;
 function ambientFx(dt){
   if(!player||soupQuiet)return;const A=PH_AIR[phase];if(!A)return;
   if(arrivalFeel>0){arrivalFeel-=dt;if(arrivalFeel<=0)bark(player,phaseBark(RG.sites[RG.cur]),'dim')}
+  // Ambient must not refill the FX buffer — a full parts[] is walked every draw frame.
+  if(parts.length>PARTS_AMBIENT)return;
   let n=A.rate*dt;while(n>0){if(R()<n){const x=cam.x+R()*VW,y=cam.y+R()*VH,i=idx((x/TS)|0,(y/TS)|0);
-    if(i>=0&&i<MW*MH&&vis[i]&&map[i])parts.push(A.glint&&R()<.3?{x,y,vx:0,vy:0,l:.25,c:'#ffffff',g:0,s:1}:{x,y,vx:(R()-.5)*4,vy:A.vy*(.5+R()),l:2.5+R()*2,c:PICK(A.mote),g:A.g,s:1})}n-=1}
+    if(i>=0&&i<MW*MH&&vis[i]&&map[i]){const p=partPool.pop()||{};p.x=x;p.y=y;p.s=1;
+      if(A.glint&&R()<.3){p.vx=0;p.vy=0;p.l=.25;p.c='#ffffff';p.g=0}else{p.vx=(R()-.5)*4;p.vy=A.vy*(.5+R());p.l=2.5+R()*2;p.c=PICK(A.mote);p.g=A.g}
+      parts.push(p)}}n-=1}
 }
 function slog(m,c){if(!soupQuiet)log(m,c)}
 const FAM={aggressive:1,forager:1,explorer:1,social:1,cautious:1,industrious:1};
@@ -4686,7 +4848,10 @@ function npcRegSay(a){
   return R()<.55?npcSay(k,a):npcSay('generic',a);
 }
 function hearNews(n,src,mode,delay){
-  heardN.add(n.id);const s=n.site!=null?RG.sites[n.site]:null;if(s){s.pulseT=gameTime+(n.big?55:38);s.heardOf=true;s.newsHot=RG.tick+40}
+  heardN.add(n.id);
+  // heardN only needs ids still in the news window — drop the rest so the Set cannot grow forever.
+  if(heardN.size>320&&RG&&RG.news){const keep=new Set(RG.news.map(x=>x.id));for(const id of[...heardN])if(!keep.has(id))heardN.delete(id)}
+  const s=n.site!=null?RG.sites[n.site]:null;if(s){s.pulseT=gameTime+(n.big?55:38);s.heardOf=true;s.newsHot=RG.tick+40}
   const txt=mode==='garbled'?garble(n):n.text,isA=!!(src&&src.comp);
   const line=isA?`"${txt}"`:`▤ ${txt}`,kind=isA?'speech':'feed';
   if(!isA)noteFeed(src,[n]);
@@ -5067,7 +5232,10 @@ function genRegion(){
         LATE_T=['Spine','Vat','Exchange','Splice','Grid','Gallery','Kiln','Leaselobby','Coolant','Cleancorridor','Badgehall','Meterward','Vault','Atrium','Busgate'];
   const WILD_POOL=['Midden','Dig','Ossuary','Pit','Crypt','Ashcamp','Boneyard','Shaft','Furnace','Kiln','Sump','Flue','Quench','Stampyard','Gasket','Coolant','Cistern','Grid'];
   const types=Object.keys(SITE_T),seeds=[];for(let k=0;k<18;k++)seeds.push({x:R()*RW,y:R()*RH,t:PICK(types)});
-  const start=S.slice().sort((a,b)=>a.x-b.x)[0];
+  // wake on a random fringe site (outer fifth by distance from centroid) — not always the western edge
+  const mx=S.reduce((a,s)=>a+s.x,0)/S.length,my=S.reduce((a,s)=>a+s.y,0)/S.length;
+  const fringe=S.slice().sort((a,b)=>Math.hypot(b.x-mx,b.y-my)-Math.hypot(a.x-mx,a.y-my)).slice(0,Math.max(12,(S.length*.22)|0));
+  const start=PICK(fringe);
   const tier=new Array(S.length).fill(-1);tier[start.id]=0;const q=[start.id];while(q.length){const i=q.shift();for(const j of S[i].nb)if(tier[j]<0){tier[j]=tier[i]+1;q.push(j)}}
   for(const s of S){
     const pool=tier[s.id]<=1?EARLY_T:tier[s.id]>=4?LATE_T:MID_T;
@@ -5502,9 +5670,9 @@ function enterSite(id,from,fs){
   if(typeof closeCard==='function'){closeCard();hoverPick=null;clearDucts()}
   const s=RG.sites[id];RG.cur=id;RG.inside=false;s.visited=true;s.lastVisit=RG.tick;depth=s.tier+1;ensureSiteHold(s);
   if(depth>save.best){save.best=depth;persist()}
-  if(s.dun){({map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,lvlCanvas,ECHO,POWER,slick}=s.dun);vis=new Uint8Array(MW*MH);if(!slick)slick=new Uint8Array(MW*MH);recountApertures()}
+  if(s.dun){({map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,ECHO,POWER,slick}=s.dun);s.dun.lvlCanvas=null;vis=new Uint8Array(MW*MH);if(!slick)slick=new Uint8Array(MW*MH);recountApertures()}
   else{const keep=R;R=rngSeed(s.seed);ECHO=new Float32Array(MW*MH);POWER=new Float32Array(MW*MH);genLevel(s.nb,s);R=keep;
-    s.dun={map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,lvlCanvas,ECHO,POWER,slick};}
+    s.dun={map,blk,flr,stock,bmat,lights,rooms,startRoom,objs,explored,exits,lvlSeed,lvlCanvas:null,ECHO,POWER,slick};}
   // cached/old gens could leave zero ducts or several destinations on one tile — repair before spawn
   ensureExits(s);if(s.dun){s.dun.exits=exits;s.dun.map=map;s.dun.flr=flr;s.dun.blk=blk;s.dun.bmat=bmat}
   renderLevel();
@@ -5514,6 +5682,7 @@ function enterSite(id,from,fs){
   actors=[player];parts=[];floats=[];rings=[];
   const arr=from!=null?exits.find(e=>e.to===from):null;let px=startRoom.cx,py=startRoom.cy;
   if(arr){const ax=arr.i%MW,ay=(arr.i/MW)|0;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]])if(walk(ax+dx,ay+dy)&&map[idx(ax+dx,ay+dy)]!==2){px=ax+dx;py=ay+dy;break}}
+  else{const ft=freeTile(startRoom);if(ft){px=ft[0];py=ft[1]}}
   player.x=px+.5;player.y=py+.5;
   // every duct is known on entry — fog used to hide onward exits so Wayfarer saw only the return ("no known duct")
   for(const e of exits)explored[e.i]=explored[e.i]||1;
@@ -5535,10 +5704,16 @@ function enterSite(id,from,fs){
   log(`  ${assemblyFeel(s)}${(s.A||0)>=6&&(s.phase==='competitive'||s.phase==='colonial'||s.phase==='complex')?' The residue is ready to stir.':''}`,'dim');
   if(s.civ)log(`  ${s.civ.name} lives here${s.civ.grudge>0?', and holds a grudge against you':civAggressive(s.civ)?', and guards its ground':''}. Their ideas: ${[...s.civ.memes.keys()].map(t=>TH[t].n).join(', ')}.`,'dim');
   if(s.ruins.length)log(`  Ruins of ${s.ruins.map(r=>r.name).join(', ')}.`,'dim');
-  if(!lvlCanvas||lvlCanvas.width!==MW*TS)renderLevel();if(s.dun)s.dun.lvlCanvas=lvlCanvas;
+  if(!lvlCanvas||lvlCanvas.width!==MW*TS)renderLevel();
+  // Keep the live bake only — pinning lvlCanvas on every visited s.dun retained ~1.3MB/site and accumulated lag.
   unlockEmptyFeeds();scheduleCampaignSave();
 }
 function farTile(){for(let t=0;t<150;t++){const x=RI(1,MW-2),y=RI(1,MH-2),i=idx(x,y);if(!walk(x,y)||map[i]===2||vis[i])continue;if(player&&Math.hypot(x+.5-player.x,y+.5-player.y)<10)continue;return[x,y]}return null}
+// Drop tile bitmaps for sites that are not the current (or MP-hot) dungeon. Typed arrays stay; canvases were the leak.
+function pruneDunCanvases(){
+  if(!RG)return;const hot=typeof MpWorld!=='undefined'&&MpWorld&&MpWorld.hot?MpWorld.hot:null;
+  for(const s of RG.sites){if(!s.dun||!s.dun.lvlCanvas)continue;if(RG.inside&&s.id===RG.cur)continue;if(hot&&hot.has(s.id))continue;s.dun.lvlCanvas=null}
+}
 function leaveSite(){if(!RG||!RG.inside)return;const s=RG.sites[RG.cur];syncSite(s);
   // player yards leave world technique residue (not knowledge)
   {const yards=objs.filter(o=>o.build&&o.mine&&(o.life==null||o.life>90));
@@ -5546,7 +5721,7 @@ function leaveSite(){if(!RG||!RG.inside)return;const s=RG.sites[RG.cur];syncSite
       for(const o of yards){if(['smoke','cairn','dryrack','fire'].includes(o.sub))tilt.bone++;else if(['press','meter','furnace','workbench'].includes(o.sub))tilt.plate++;else if(['badge','incubator','chill','breaker'].includes(o.sub))tilt.lease++}
       const dom=REG_K.reduce((a,k)=>tilt[k]>tilt[a]?k:a,'bone');
       if(tilt[dom]){s.reg=s.reg||{...siteReg(s)};s.reg[dom]=(s.reg[dom]||0)+.08;let sum=REG_K.reduce((a,k)=>a+(s.reg[k]||0),0);for(const k of REG_K)s.reg[k]/=sum;s.km=null}}}
-  s.dun.objs=objs.filter(o=>!(o.k==='art'&&!o.inscribed)&&!(o.k==='item'&&o.it.bait));s.dun.lights=lights;s.dun.slick=slick;flushCurDun();RG.inside=false;scheduleCampaignSave()}
+  s.dun.objs=objs.filter(o=>!(o.k==='art'&&!o.inscribed)&&!(o.k==='item'&&o.it.bait));s.dun.lights=lights;s.dun.slick=slick;flushCurDun();RG.inside=false;pruneDunCanvases();scheduleCampaignSave()}
 function travel(to){
   const from=RG.cur,fs=followers().filter(f=>Math.hypot(f.x-player.x,f.y-player.y)<10);
   // fully explored pocket is done forever — no timer that re-opens Cleancorridor loops
@@ -5685,6 +5860,7 @@ function enterSiteFor(playerId,siteId,from){
       bindPlayerView(rec);
       let px=startRoom.cx,py=startRoom.cy;
       if(from!=null){const arr=exits.find(e=>e.to===from);if(arr){const ax=arr.i%MW,ay=(arr.i/MW)|0;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]])if(walk(ax+dx,ay+dy)){px=ax+dx;py=ay+dy;break}}}
+      else{const ft=freeTile(startRoom);if(ft){px=ft[0];py=ft[1]}}
       if(rec.lastX!=null&&walk(rec.lastX|0,rec.lastY|0)){px=rec.lastX|0;py=rec.lastY|0}
       rec.vessel.x=px+.5;rec.vessel.y=py+.5;
       Object.assign(rec.vessel,{intent:null,path:null,exT:null,busy:null,wT:null,hidden:false,focus:{},siteT:0,idleT:0,travelTo:null});
@@ -5886,6 +6062,27 @@ function loadCampaignBlob(raw){
     bootingCampaign=false;return true;
   }catch(e){console.warn('loadCampaignBlob failed',e);RG=null;bootingCampaign=false;return false}
 }
+/** Mint a fresh empty multiplayer world blob without leaving the current campaign loaded. */
+function mintWorldBlob(){
+  const backup=saveCampaignBlob();
+  const bakInside=RG&&RG.inside;
+  try{
+    if(RG&&RG.inside)try{leaveSite()}catch(e){}
+    MpWorld=null;player=null;RG=null;
+    genRegion();ensureMP();
+    if(MpWorld)MpWorld.players.clear();
+    const blob=saveCampaignBlob();
+    if(blob){blob.players=[];blob.vessel=null}
+    if(backup)loadCampaignBlob(backup);
+    return blob;
+  }catch(e){
+    console.warn('mintWorldBlob failed',e);
+    if(backup)try{loadCampaignBlob(backup)}catch(_){}
+    return null;
+  }finally{
+    if(bakInside&&RG&&!RG.inside){/* leave cold */}
+  }
+}
 function importCampaignBlob(raw){
   if(!loadCampaignBlob(raw))return false;
   ensureMP();
@@ -5938,12 +6135,15 @@ function mpBan(playerId){
 }
 
 // ================================================================ update
+// Cap how many NPCs may rethink in one frame — synchronized thinkT used to stampede bfs.
+let _thinkBudget=0;
 function updActor(a,dt){
   if(a.dead)return;
   a.cd-=dt;a.flash=Math.max(0,a.flash-dt);a.lunge=Math.max(0,a.lunge-dt);a.lastHit-=dt;a.age+=dt;a.breedCd-=dt;
   a.scared=Math.max(0,a.scared-dt);a.stuck=Math.max(0,(a.stuck||0)-dt);if(a.baitT)a.baitT=Math.max(0,a.baitT-dt);
   // every body burns energy; moving and working burn more; starving hurts
-  const moving=a.intent&&!a.intent.self&&!a.busy;
+  const stickOn=a===player&&MANUAL&&stickMoving();
+  const moving=stickOn||(a.intent&&!a.intent.self&&!a.busy);
   a.siteT=(a.siteT||0)+dt;
   // only open-ended work drains attention; standing silent must not spend the last of it into a softlock
   if(a===player&&a.intent&&WORK.has(a.intent.v)){const st=RG&&RG.sites[RG.cur];let mul=st&&st.phase==='complex'?1.25:st&&st.phase==='primordial'?1.1:1;const v=a.intent.v;
@@ -5965,8 +6165,11 @@ function updActor(a,dt){
     // #endregion
   }
   if(a===player&&hasClearance(a)&&(!(a.clearSoft>gameTime)||(a._clearTick||0)<gameTime)){a._clearTick=gameTime+8;softClear(a,24)}
-  if(a===player){const v=a.intent?a.intent.v:null;if(v!==a._lastV){const B={FLEE:['flee!','bad'],HIDE:['hide','info'],AMBUSH:['waits...','info'],REST:['rest','info'],CAMP:['camp','info'],FEED:['hungry','info'],TRAVEL:['→ '+(a.intent&&a.intent.lab||''),'info'],INSTINCT:['strikes back','bad']}[v];if(B&&!(v==='FEED'&&a.energy>a.maxEnergy*.5))bark(a,B[0],B[1]);a._lastV=v}
-    if(a.energy<=0&&!a._starve){bark(a,'starving','bad');a._starve=true}else if(a.energy>10)a._starve=false}
+  {const v=a.intent?a.intent.v:null;if(v!==a._lastV){
+    if(a===player){const B={FLEE:['flee!','bad'],HIDE:['hide','info'],AMBUSH:['waits...','info'],REST:['rest','info'],CAMP:['camp','info'],FEED:['hungry','info'],TRAVEL:['→ '+(a.intent&&a.intent.lab||''),'info'],INSTINCT:['strikes back','bad']}[v];if(B&&!(v==='FEED'&&a.energy>a.maxEnergy*.5))bark(a,B[0],B[1])}
+    else if((v==='REST'||v==='CAMP')&&typeof seen==='function'&&seen(a))bark(a,v==='CAMP'?'camp':'rest','info');
+    a._lastV=v}
+  if(a===player){if(a.energy<=0&&!a._starve){bark(a,'starving','bad');a._starve=true}else if(a.energy>10)a._starve=false}}
   if(a.flora){const ti=idx(a.x|0,a.y|0),fl=floorAt(ti),K=KIND[a.comp.species];
     if(K.dieLight&&LIGHT[ti]>.45){a.hp-=dt*4;if(a.hp<=0){kill(a,'the light');return}}
     if(K.dieDamp&&isDamp(ti)){a.hp-=dt*4;if(a.hp<=0){kill(a,'the damp');return}}
@@ -5975,7 +6178,7 @@ function updActor(a,dt){
     if(K.echo&&ECHO)ECHO[ti]=Math.min(1,ECHO[ti]+dt*K.echo);
     if(K.seep&&slick&&map[ti]&&map[ti]!==2&&!slick[ti]){a.seepT=(a.seepT||0)+dt;if(a.seepT>20){a.seepT=0;slick[ti]=1;repaintTile(a.x|0,a.y|0)}}
     a.energy=Math.min(a.maxEnergy,a.energy+dt*(.08+LIGHT[ti]*.25+(fl&&(fl.rot||fl.regrow)?.12:0)+(HEAT[ti]>.2?.05:0))*(cycleMul()<.4?.6:1))}
-  if(a.equip.trinket&&a.equip.trinket.st&&a.equip.trinket.st.light){a.lampT=(a.lampT||0)+dt;const before=fuelCount(a)>0;if(a.lampT>30&&before){a.lampT=0;if(!useMat(a,'oil')&&!useMat(a,'fuel')&&!useMat(a,'char')&&!useMat(a,'tallow'))useMat(a,'cell')}if(before!==(fuelCount(a)>0))recalc(a)}
+  if((a.equip.trinket&&a.equip.trinket.st&&a.equip.trinket.st.light)||(a.equip.body&&a.equip.body.st&&a.equip.body.st.light)){a.lampT=(a.lampT||0)+dt;const before=fuelCount(a)>0;if(a.lampT>30&&before){a.lampT=0;if(!useMat(a,'oil')&&!useMat(a,'fuel')&&!useMat(a,'char')&&!useMat(a,'tallow'))useMat(a,'cell')}if(before!==(fuelCount(a)>0))recalc(a)}
   const hw=a.equip.hand,body=a.equip.body;
   if(hw&&!hw.st)fixGear(hw);if(body&&!body.st)fixGear(body);
   if(hw&&hw.st&&hw.st.brand){a.brandT=(a.brandT||0)+dt;if(a.brandT>20){a.brandT=0;if(useMat(a,'fuel')||useMat(a,'oil')||useMat(a,'char')||useMat(a,'tallow')){scorch(idx(a.x|0,a.y|0),5);rebuildEnv()}}}
@@ -5986,8 +6189,10 @@ function updActor(a,dt){
   if(a.energy<=0){a.energy=0;a.hp-=dt*.6;if(a.hp<=0){kill(a,'starvation');return}}
   else if(a.lastHit<=0&&a.hp<a.maxHp&&a.energy>25&&a.comp.species!=='Skeleton'&&!a.construct){const h=dt*.15*(a.comp.species==='Mushroom'?2:1)*(a.comp.sign==='Leaf'?1.5:1);a.hp=Math.min(a.maxHp,a.hp+h);a.energy-=h*.6}
   if(a.busy){
-    if(a.busy.type==='rest'&&seenThreats(a).length)a.busy=null;
-    else{a.busy.t-=dt;if(a.busy.t<=0){const b=a.busy;a.busy=null;
+    // manual: stick cancels busy (no heal / no composeMind — same as threat clearing rest)
+    if(a===player&&MANUAL&&stickMoving()){a.busy=null;a.intent=null;a.thinkT=0;a.path=null}
+    else if(a.busy.type==='rest'&&restPress(a))a.busy=null;
+    else if(a.busy){a.busy.t-=dt;if(a.busy.t<=0){const b=a.busy;a.busy=null;
       // #region agent log
       try{b.done();if(a===player)_dbgLog('B','updActor:busyDone','busy callback ok',{type:b.type,t0:b.t0,body:a.equip&&a.equip.body&&a.equip.body.kind,paused,dlgOpen})}
       catch(err){if(a===player)_dbgLog('B','updActor:busyDone','busy callback THREW (ignored)',{err:String(err&&err.message||err),stack:String(err&&err.stack||'').slice(0,500)})}
@@ -5999,13 +6204,55 @@ function updActor(a,dt){
     if(a.hp<a.maxHp*.98)wakeMass(a);
     else{a.intent=null;return}
   }
+  // ---- manual play: player stick + in-range Mind acts + hold-on-duct travel
+  if(a===player&&MANUAL){
+    a.thinkT-=dt;
+    if(a.thinkT<=0){a.thinkT=.25;a.intent=think(a);a.path=null;a.repath=true}
+    const st=stickVec(),idle=!st.x&&!st.y;
+    const i=idx(a.x|0,a.y|0),duct=exits&&exits.find(e=>e.i===i&&!(sealMap&&sealMap[e.i]));
+    if(duct&&idle&&manualDuctWanted(a,duct.to)){
+      a._ductHold=(a._ductHold||0)+dt;
+      if(!(a._ductBarkAt>gameTime)){a._ductBarkAt=gameTime+1.2;bark(a,'hold…','info')}
+      if(a._ductHold>=DUCT_HOLD_T&&boardTravel(duct.to)){a._ductHold=0;a.intent=null;return}
+    }else a._ductHold=0;
+    if(!idle){
+      // leaving an ambush crouch: break wait so moveToward can clear hidden
+      if(a.intent&&manualWait(a.intent)){a.intent=null;a.hidden=false;a.thinkT=0}
+      moveToward(a,a.x+st.x*8,a.y+st.y*8,dt);a._ductHold=0;
+    }
+    let it=a.intent;
+    if(it&&manualIntentOk(a,it)){
+      // AMBUSH waiting: stay hidden, no act — prey closing upgrades to swing on next think
+      if(manualWait(it)&&idle){a.hidden=true;return}
+      // approach-only (e.g. REFINE walk-to-heat): micro-step onto the spot, then rethink into the real act
+      if(manualApproach(it)&&idle){
+        let tx,ty;if(it.ent){tx=it.ent.k?it.ent.x+.5:it.ent.x;ty=it.ent.k?it.ent.y+.5:it.ent.y}
+        else{tx=(it.tile%MW)+.5;ty=((it.tile/MW)|0)+.5}
+        if(Math.hypot(tx-a.x,ty-a.y)>.12){moveToward(a,tx,ty,dt);return}
+        a.thinkT=0;a.intent=think(a);it=a.intent;
+        if(it&&manualApproach(it)&&manualIntentOk(a,it)){a.intent=null;a.thinkT=.15;return}
+      }
+      // while steering: no busy work; combat still fires (VS-like). Self/work acts need idle.
+      if(it&&it.act&&manualIntentOk(a,it)&&(idle||it.act==='attack')){act(a,it);return}
+    }
+    return;
+  }
   a.thinkT-=dt;
-  if(a.thinkT<=0){a.thinkT=a===player?.25:(Math.hypot(a.x-player.x,a.y-player.y)>22?1:.35);
-    if(a.scared>0&&a!==player){const t=fleeTarget(a,[player]);a.intent=t>=0?{tile:t,range:.3,v:'FLEE',th:null,lab:'fear'}:null}
-    else a.intent=think(a);
-    // idle on a duct tile boards the moment a ban lifts — step off while silent
-    if(a===player&&!a.intent){const off=stepOffDuct(a);if(off)a.intent=off}
-    a.path=null;a.repath=true}
+  if(a.thinkT<=0){
+    // Defer surplus NPC minds to later frames (keeps intent; avoids bfs storms).
+    if(a!==player&&_thinkBudget<=0){a.thinkT=.04+R()*.08}
+    else{
+      if(a!==player)_thinkBudget--;
+      // Jitter period by id so nearby bodies do not lock-step.
+      const far=a!==player&&Math.hypot(a.x-player.x,a.y-player.y)>22;
+      a.thinkT=a===player?.25:(far?1:.35)+((a.id||0)%7)*.04;
+      if(a.scared>0&&a!==player){const t=fleeTarget(a,[player]);a.intent=t>=0?{tile:t,range:.3,v:'FLEE',th:null,lab:'fear'}:null}
+      else a.intent=think(a);
+      // idle on a duct tile boards the moment a ban lifts — step off while silent
+      if(a===player&&!a.intent){const off=stepOffDuct(a);if(off)a.intent=off}
+      a.path=null;a.repath=true;
+    }
+  }
   const it=a.intent;if(!it)return;
   let tx,ty;
   if(it.self){tx=a.x;ty=a.y}
@@ -6027,8 +6274,9 @@ function updActor(a,dt){
       if(Math.abs(ax-tix)+Math.abs(ay-tiy)===1){act(a,it);return}
     }
   }
-  if(a.repath){
-    a.repath=false;const tix=tx|0,tiy=ty|0,ti=idx(tix,tiy);
+  if(a.repath&&(a._repathAt==null||a._repathAt<=gameTime)){
+    a.repath=false;a._repathAt=gameTime+(a===player?.12:.28);
+    const tix=tx|0,tiy=ty|0,ti=idx(tix,tiy);
     // explore/travel need a deeper search; short lim made EXPLORE pick goals it could never walk
     const lim=a===player?(it.v==='EXPLORE'||it.v==='TRAVEL'||it.act==='travel'?900:320):120;
     let path=bfs(a.x|0,a.y|0,i=>i===ti,lim);
@@ -6042,8 +6290,9 @@ function updActor(a,dt){
     if(Math.hypot(mx-a.x,my-a.y)<.12){a.path.shift();if(a.path.length){n=a.path[0];mx=(n%MW)+.5;my=((n/MW)|0)+.5}else{mx=tx;my=ty}}
   }else if(d<1.6){mx=tx;my=ty}
   else{
-    // do not markBad on the first failed repath — give a short retry window (crates / footprint jostle)
-    a.stillT=(a.stillT||0)+dt;a.repath=true;
+    // Stuck: request repath at most ~3Hz — old code set repath every frame → bfs storms (40–200+/tick).
+    a.stillT=(a.stillT||0)+dt;
+    if(a.stillT>0.35)a.repath=true;
     if(a.stillT>1.2){a.stillT=0;if(it.act!=='travel'&&it.v!=='TRAVEL')markBad(a,it);if(it.v==='TRAVEL')a.travelTo=null;a.intent=null;a.thinkT=0;if(it.v==='EXPLORE')a.exT=null}
     return;
   }
@@ -6099,6 +6348,7 @@ function update(dt){
   visT-=dt;if(visT<=0){visT=.1;computeVis();updatePlayerStealth()}
   const ptile=idx(player.x|0,player.y|0),s=RG.sites[RG.cur];
   cycleStep(dt);envStep(dt,s);
+  _thinkBudget=4; // player always thinks; up to 4 NPCs rethink this tick
   for(const a of actors){
     updActor(a,dt);
     if(!a.dead&&DBG.pose){
@@ -6127,8 +6377,11 @@ function update(dt){
 const partPool=[],floatPool=[],ringPool=[];
 function emit(x,y,n,cols,sp=60,life=.6,g=0,size=1){
   if(soupQuiet)return;
-  for(let i=0;i<n;i++){const an=R()*6.2832,v=sp*(.25+R()*.95);const p=partPool.pop()||{};p.x=x;p.y=y;p.vx=Math.cos(an)*v;p.vy=Math.sin(an)*v;p.l=life*(.5+R()*.8);p.c=PICK(cols);p.g=g;p.s=size;parts.push(p)}
-  if(parts.length>2500){const drop=parts.splice(0,parts.length-2500);for(const p of drop)partPool.push(p)}
+  // Keep the FX buffer small: one splice to drop oldest, then push the burst.
+  const over=parts.length+n-PARTS_CAP;
+  if(over>0){const drop=Math.min(parts.length,over);for(let i=0;i<drop;i++)if(partPool.length<400)partPool.push(parts[i]);parts.splice(0,drop)}
+  const take=Math.min(n,PARTS_CAP-parts.length);
+  for(let i=0;i<take;i++){const an=R()*6.2832,v=sp*(.25+R()*.95);const p=partPool.pop()||{};p.x=x;p.y=y;p.vx=Math.cos(an)*v;p.vy=Math.sin(an)*v;p.l=life*(.5+R()*.8);p.c=PICK(cols);p.g=g;p.s=size;parts.push(p)}
 }
 function separateActors(){
   const live=[];for(const a of actors)if(!a.dead)live.push(a);
@@ -6774,6 +7027,15 @@ function deviceXform(c){c.setTransform(1,0,0,1,0,0);c.imageSmoothingEnabled=fals
 const softSpot=(()=>{const N=64*RES,c=document.createElement('canvas');c.width=N;c.height=N;const g=c.getContext('2d');if(!g)return c;
   const mid=N/2,grd=g.createRadialGradient(mid,mid,0,mid,mid,mid);grd.addColorStop(0,'rgba(255,255,255,1)');grd.addColorStop(.45,'rgba(255,255,255,.85)');grd.addColorStop(.75,'rgba(255,255,255,.35)');grd.addColorStop(1,'rgba(255,255,255,0)');
   g.fillStyle=grd;g.fillRect(0,0,N,N);return c})();
+// Tinted soft spots — avoids createRadialGradient-per-glow every frame (main-thread GC that worsened as heap grew).
+const _softTint=new Map();
+function softTint(c){
+  let cv=_softTint.get(c);if(cv)return cv;
+  cv=document.createElement('canvas');cv.width=softSpot.width;cv.height=softSpot.height;
+  const g=cv.getContext('2d');if(!g)return softSpot;
+  g.fillStyle=c;g.fillRect(0,0,cv.width,cv.height);g.globalCompositeOperation='destination-in';g.drawImage(softSpot,0,0);
+  if(_softTint.size>48)_softTint.clear();_softTint.set(c,cv);return cv;
+}
 // ordered-dither threshold matrices: 2x2, 4x4, 8x8 (recursive Bayer)
 function bayerM(n){let m=[[0]];while(m.length<n){const k=m.length,M=[];for(let y=0;y<k*2;y++){M.push([]);for(let x=0;x<k*2;x++)M[y].push(4*m[y%k][x%k]+[0,2,3,1][(y<k?0:2)+(x<k?0:1)])}m=M}return m.flat().map(v=>(v+.5)/(n*n))}
 const BAYERS={2:bayerM(2),4:bayerM(4),8:bayerM(8)};
@@ -6845,6 +7107,7 @@ function presentCPU(){
   _disp2d.putImageData(im,0,0);
 }
 function presentFrame(){
+  // Expectation: sceneCv already has DoF when enabled (applyDofBeforeDither in draw).
   if(!_presentInited)initPresent();
   if(_glOk){try{presentGL();return}catch(e){_glOk=false;_disp2d=cv.getContext('2d',{alpha:false});if(_disp2d)_disp2d.imageSmoothingEnabled=false}}
   presentCPU();
@@ -6965,6 +7228,13 @@ function gearPix(col,x,y,w=1,h=1){
   worldXform(ctx);
 }
 function gearBits(col,bits,ox=0,oy=0){for(const b of bits)gearPix(col,ox+b[0],oy+b[1],b[2]||1,b[3]||1)}
+const HAUL_SHAPE={
+  'Hide Sack':'sack','Sinew Bag':'satchel','Bone Cradle':'cradle','Ash Bundle':'bundle',
+  'Pack Frame':'framepack','Scrap Basket':'basket','Crate Rig':'crate','Rivet Trunk':'trunk',
+  'Coolant Twin':'tanks','Seal Drum':'drum','Cell Rack':'rack','Badge Case':'case'
+};
+function haulOf(g){return g&&g.st&&g.st.haul?HAUL_SHAPE[g.kind]||'sack':null}
+function bodyRear(g){return !!(haulOf(g)||(g&&(g.kind==='Frame'||g.kind==='Bone Harness')))}
 // facing-aware paint layer: 'back' under torso, 'front' over it, null = skip this facing
 function gearPass(slot,a){
   const fy=a.faceY||0,back=fy<0; // faceY=-1 → up / back to camera
@@ -6972,17 +7242,72 @@ function gearPass(slot,a){
   if(slot==='tool')return back?'front':'back';
   if(slot==='trinket')return 'front';
   if(slot==='body'){
-    const k=a.equip&&a.equip.body&&a.equip.body.kind;
-    const pack=k==='Frame'||k==='Pack Frame'||k==='Bone Harness';
-    if(back)return pack?'front':null; // chest plate not visible from behind
-    return pack?'back':'front';
+    const rear=bodyRear(a.equip&&a.equip.body);
+    if(back)return rear?'front':null; // chest plate not visible from behind
+    return rear?'back':'front';
   }
   return 'front';
+}
+// haul packs: rear mass when facing away / side; straps only from front
+function drawHaul(shape,col,ox,oy,full,fill,tall){
+  const y=oy;
+  if(!full){gearPix(col,ox-3,y-1);gearPix(col,ox+2,y-1);gearPix(col,ox-2,y+1);gearPix(col,ox+1,y+1);return}
+  const h=tall?1:0;
+  if(shape==='sack'){
+    gearPix(col,ox-2,y-1,4,1);gearPix(col,ox-3,y,6,1);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);
+    if(fill){gearPix(col,ox-1,y,2,1);gearPix(col,ox-1,y+1,2,1)}
+  }else if(shape==='satchel'){
+    gearPix(col,ox-3,y,6,1);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);
+    if(fill)gearPix(col,ox-1,y+1,2,1);
+  }else if(shape==='cradle'){
+    gearPix(col,ox-3,y-1);gearPix(col,ox-1,y-1,2,1);gearPix(col,ox+2,y-1);
+    gearPix(col,ox-3,y);gearPix(col,ox+2,y);gearPix(col,ox-3,y+1);gearPix(col,ox-1,y+1,2,1);gearPix(col,ox+2,y+1);
+    if(fill)gearPix(col,ox-1,y,2,1);
+  }else if(shape==='bundle'){
+    gearPix(col,ox-2,y-1,4,1);gearPix(col,ox-3,y,6,1);gearPix(col,ox-2,y+1,4,1);
+    gearPix('#3a342c',ox-1,y,2,1);
+    if(fill)gearPix(col,ox,y+1);
+  }else if(shape==='framepack'){
+    gearPix(col,ox-4,y-1);gearPix(col,ox+3,y-1);gearPix(col,ox-2,y,4,1);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);gearPix(col,ox-4,y+2);gearPix(col,ox+3,y+2);
+    if(fill)gearPix(col,ox-1,y+1,2,1);
+  }else if(shape==='basket'){
+    gearPix(col,ox-3,y-1,6,1);gearPix(col,ox-3,y);gearPix(col,ox+2,y);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);
+    if(fill){gearPix(col,ox-1,y,1,1);gearPix(col,ox,y)}
+  }else if(shape==='crate'){
+    gearPix(col,ox-3,y-1-h,6,1);gearPix(col,ox-3,y-h);gearPix(col,ox+2,y-h);gearPix(col,ox-3,y+1-h);gearPix(col,ox+2,y+1-h);gearPix(col,ox-3,y+2,6,1);if(h)gearPix(col,ox-3,y+3,6,1);
+    if(fill)gearPix(col,ox-1,y,2,1);
+  }else if(shape==='trunk'){
+    gearPix(col,ox-3,y-1,6,1);gearPix(col,ox-3,y,6,1);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);
+    if(fill)gearPix(poseShade(col,.7),ox-1,y,2,1);
+  }else if(shape==='tanks'){
+    gearPix(col,ox-4,y-1,2,1);gearPix(col,ox-4,y,2,1);gearPix(col,ox-4,y+1,2,1);
+    gearPix(col,ox+2,y-1,2,1);gearPix(col,ox+2,y,2,1);gearPix(col,ox+2,y+1,2,1);
+    gearPix(col,ox-2,y+2,4,1);
+    if(fill){gearPix('#4a7888',ox-4,y);gearPix('#4a7888',ox+2,y)}
+  }else if(shape==='drum'){
+    gearPix(col,ox-2,y-1,4,1);gearPix(col,ox-3,y,6,1);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);
+    if(fill)gearPix(poseShade(col,.75),ox-1,y,2,2);
+  }else if(shape==='rack'){
+    gearPix(col,ox-3,y-1);gearPix(col,ox,y-1);gearPix(col,ox+2,y-1);
+    gearPix(col,ox-3,y);gearPix(col,ox,y);gearPix(col,ox+2,y);
+    gearPix(col,ox-3,y+1);gearPix(col,ox,y+1);gearPix(col,ox+2,y+1);
+    gearPix(col,ox-3,y+2,6,1);
+    if(fill){gearPix('#5cc4c4',ox-2,y);gearPix('#5cc4c4',ox+1,y)}
+  }else if(shape==='case'){
+    gearPix(col,ox-3,y,6,1);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);
+    if(fill)gearPix(poseShade(col,1.2),ox-1,y,2,1);
+  }else{
+    gearPix(col,ox-2,y,4,1);gearPix(col,ox-3,y+1,6,1);gearPix(col,ox-2,y+2,4,1);
+  }
 }
 function drawGear(a,t){
   // sprite-local 10×10 (origin = sprite top-left); used only when not posing
   const e=a.equip;if(!e||!(e.hand||e.body||e.tool||e.trinket))return;
-  if(e.body){const k=e.body.kind;gearBits(gearCol(e.body),k==='Plate'||k==='Scale Suit'?[[2,4,6,1],[1,3],[8,3]]:k==='Mesh'?[[2,4,6,1],[2,5],[7,5]]:k==='Frame'||k==='Pack Frame'?[[1,3],[8,3],[1,6],[8,6],[3,4,4,1]]:k==='Seal Suit'?[[2,3,6,1],[2,4,6,1],[3,6,4,1]]:k==='Bone Harness'?[[2,4,6,1],[1,5],[8,5]]:[[2,4,6,1],[3,6,4,1]])}
+  if(e.body){
+    const k=e.body.kind,col=gearCol(e.body),shape=haulOf(e.body);
+    if(shape){const fill=packCount(a)>a.packCap*.7,tall=(e.body.st.burden||0)>=2;drawHaul(shape,col,5,4,true,fill,tall)}
+    else gearBits(col,k==='Plate'||k==='Scale Suit'?[[2,4,6,1],[1,3],[8,3]]:k==='Mesh'?[[2,4,6,1],[2,5],[7,5]]:k==='Frame'?[[1,3],[8,3],[1,6],[8,6],[3,4,4,1]]:k==='Seal Suit'?[[2,3,6,1],[2,4,6,1],[3,6,4,1]]:k==='Bone Harness'?[[2,4,6,1],[1,5],[8,5]]:[[2,4,6,1],[3,6,4,1]]);
+  }
   if(e.tool){const k=e.tool.kind;gearBits(gearCol(e.tool),k==='Pick'||k==='Drill'?[[-1,2],[0,3]]:k==='Pry Bar'?[[-1,4,1,3]]:k==='Siphon'?[[-1,5],[0,6]]:k==='Saw'?[[-1,3,2,1],[-1,4]]:[[-1,4,2,1]])}
   if(e.hand){const k=e.hand.kind;const col=k==='Laser'||k==='Cutter'?'#c8f4ff':k==='Coil'||k==='Driver'?'#7ad0c8':k==='Prod'?'#9ad8d0':gearCol(e.hand);
     gearBits(col,k==='Club'||k==='Brand'||k==='Maul'?[[9,3,2,2]]:k==='Axe'?[[9,3,2,1],[10,4]]:k==='Spear'?[[9,2,1,4]]:k==='Bow'?[[9,3],[10,4],[9,5]]:k==='Sling'?[[9,4],[10,5]]:k==='Flamer'?[[9,4,3,2]]:k==='Launcher'||k==='Gun'||k==='Charge'?[[9,5,4,1]]:k==='Laser'||k==='Coil'||k==='Burner'||k==='Rifle'||k==='Driver'||k==='Cutter'?[[9,4,4,1]]:k==='Shotgun'||k==='Needle'?[[9,4,3,1]]:[[9,4,2,1],[10,3],[10,5]])}
@@ -7000,10 +7325,15 @@ function drawPoseGear(a,t,pass){
   const hx=Math.round(H.x-cam.x),hy=Math.round(H.y-cam.y);
   const fx=side?face:0,fyv=side?0:fy; // unit facing in screen space
   if(e.body&&gearPass('body',a)===pass){
-    const k=e.body.kind,col=gearCol(e.body);
-    if(k==='Plate'||k==='Scale Suit'){gearPix(col,cx-3,cy,6,1);gearPix(col,cx-4,cy-1);gearPix(col,cx+3,cy-1)}
+    const k=e.body.kind,col=gearCol(e.body),shape=haulOf(e.body);
+    if(shape){
+      const back=fy<0,full=back||side,fill=packCount(a)>a.packCap*.7,tall=(e.body.st.burden||0)>=2;
+      const bob=(a.walkT&&full)?Math.round(Math.sin(a.walkT*9)*.5):0;
+      const ox=side?cx-face*2:cx,oy=cy+bob;
+      drawHaul(shape,col,ox,oy,full,fill,tall);
+    }else if(k==='Plate'||k==='Scale Suit'){gearPix(col,cx-3,cy,6,1);gearPix(col,cx-4,cy-1);gearPix(col,cx+3,cy-1)}
     else if(k==='Mesh'){gearPix(col,cx-3,cy,6,1);gearPix(col,cx-3,cy+1);gearPix(col,cx+2,cy+1)}
-    else if(k==='Frame'||k==='Pack Frame'){gearPix(col,cx-4,cy-1);gearPix(col,cx+3,cy-1);gearPix(col,cx-4,cy+2);gearPix(col,cx+3,cy+2);gearPix(col,cx-2,cy,4,1)}
+    else if(k==='Frame'){gearPix(col,cx-4,cy-1);gearPix(col,cx+3,cy-1);gearPix(col,cx-4,cy+2);gearPix(col,cx+3,cy+2);gearPix(col,cx-2,cy,4,1)}
     else if(k==='Seal Suit'){gearPix(col,cx-3,cy-1,6,1);gearPix(col,cx-3,cy,6,1);gearPix(col,cx-2,cy+2,4,1)}
     else if(k==='Bone Harness'){gearPix(col,cx-3,cy,6,1);gearPix(col,cx-4,cy+1);gearPix(col,cx+3,cy+1)}
     else{gearPix(col,cx-3,cy,6,1);gearPix(col,cx-2,cy+2,4,1)}
@@ -7037,8 +7367,9 @@ function drawActor(a,sx,sy,t){
   const moving=a.intent&&!a.intent.self&&!a.busy;
   const bob=moving&&Math.sin(a.walkT*9)>0?1:0,lx=a.lunge>0?(a.faceY?0:a.face*2):0,ly=a.lunge>0&&a.faceY?a.faceY*2:0;
   const f=footOf(a),sc=Math.max(1,Math.max(f.w,f.h)),pw=10*sc,ph=10*sc;
-  const shW=Math.round(8*sc),shH=Math.max(2,Math.round(2*sc));
-  ctx.fillStyle=a.asleep?'rgba(0,0,0,.35)':'rgba(0,0,0,.5)';ctx.fillRect(sx-(shW>>1),sy+2+sc,shW,shH);
+  // Hard-pixel footing only (art bible: no soft drop shadows under actors).
+  const shW=Math.max(4,Math.round(6*sc));
+  ctx.fillStyle='#000';ctx.fillRect(sx-(shW>>1),sy+3+sc,shW,1);
   // sprites off-camera / far; pose only for on-screen bodies
   // gear depth: back pass under torso, front pass over (facing-aware)
   const canPose=DBG.pose&&poseNear(a)&&bodyOf(a)&&ensurePose(a);
@@ -7092,6 +7423,29 @@ function drawMegaParallax(t){
   ctx.fillStyle='rgba(8,14,20,.18)';ctx.fillRect(0,0,VW,VH);
   if(shaftI>8){ctx.fillStyle=`rgba(60,100,110,${.02+Math.sin(t*1.2)*.01})`;ctx.fillRect(0,0,VW,VH)}
 }
+// Restrained DoF on the finished scene buffer, then Bayer present dithers the result.
+let _dofSrc=null,_dofBlur=null,_dofMask=null;
+function applyDofBeforeDither(){
+  if(DBG.dof===false||!player)return;
+  try{if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch(e){}
+  const maxB=Math.min(5,Math.max(0,+DBG.dofMax||0));if(maxB<.15)return;
+  deviceXform(ctx);
+  if(!_dofSrc||_dofSrc.width!==SRW){
+    _dofSrc=document.createElement('canvas');_dofSrc.width=SRW;_dofSrc.height=SRH;
+    _dofBlur=document.createElement('canvas');_dofBlur.width=SRW;_dofBlur.height=SRH;
+    _dofMask=document.createElement('canvas');_dofMask.width=SRW;_dofMask.height=SRH;
+  }
+  const s=_dofSrc.getContext('2d'),b=_dofBlur.getContext('2d'),m=_dofMask.getContext('2d');
+  s.imageSmoothingEnabled=false;s.clearRect(0,0,SRW,SRH);s.drawImage(sceneCv,0,0);
+  b.imageSmoothingEnabled=true;b.clearRect(0,0,SRW,SRH);b.filter=`blur(${maxB.toFixed(2)}px)`;b.drawImage(_dofSrc,0,0);b.filter='none';
+  const fx=(player.x*TS-cam.x)*RES,fy=(player.y*TS-cam.y)*RES;
+  const sharpR=Math.max(TS*8,96)*RES; // ~8 tiles stay readable (wider focus band)
+  m.imageSmoothingEnabled=false;m.clearRect(0,0,SRW,SRH);m.drawImage(_dofSrc,0,0);
+  m.globalCompositeOperation='destination-in';m.drawImage(softSpot,fx-sharpR,fy-sharpR,sharpR*2,sharpR*2);m.globalCompositeOperation='source-over';
+  ctx.drawImage(_dofBlur,0,0);ctx.drawImage(_dofMask,0,0);
+  worldXform(ctx);
+}
+
 function draw(t){
   worldXform(ctx);worldXform(lctx);
   let tx=(lookAt?lookAt.x:player.x)*TS-VW/2,ty=(lookAt?lookAt.y:player.y)*TS-VH/2;
@@ -7146,12 +7500,12 @@ function draw(t){
     else if(o.k==='enc'&&!o.used&&o.et==='shrine')hole(x,y,30,.85);
     else if(o.k==='enc'&&!o.used&&o.et==='altar')hole(x,y,28,.8);
     else if(o.k==='art'&&o.type===5&&!o.used&&o.memes.length)hole(x,y,14,.5)}
-  {let hot=0;for(const p of parts){if(hot>40)break;if(p.c[1]==='f'){hot++;hole(p.x-cam.x,p.y-cam.y,10,.5)}}}
+  {let hot=0;for(const p of parts){if(hot>24)break;const px=p.x-cam.x,py=p.y-cam.y;if(px<-20||py<-20||px>VW+20||py>VH+20)continue;if(p.c[1]==='f'){hot++;hole(px,py,10,.5)}}}
   // lightCv is already RES-scaled; composite in device pixels so it isn't scaled twice
   deviceXform(ctx);ctx.drawImage(lightCv,0,0);worldXform(ctx);
   ctx.globalCompositeOperation='lighter';
-  for(const[x,y,r,c,s]of glows){if(r<.5)continue;const[cr,cg,cb]=hex(c);const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,`rgba(${cr},${cg},${cb},${s})`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
-  ctx.globalCompositeOperation='source-over';
+  for(const[x,y,r,c,s]of glows){if(r<.5)continue;ctx.globalAlpha=s;ctx.drawImage(softTint(c),x-r,y-r,r*2,r*2)}
+  ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
   // living details of the environment: power in conduits, echoes of the dead, steam
   for(let y=ty0;y<=ty1;y++)for(let x=tx0;x<=tx1;x++){const i=idx(x,y);
     if(map[i]){if(vis[i]&&ECHO[i]>.12&&hash(x,y,(t*3)|0)<ECHO[i]*.5){ctx.fillStyle='#cfe8e4';ctx.fillRect(x*TS-cam.x+((hash(x,y,(t*7)|0)*10)|0)+1,y*TS-cam.y+((hash(y,x,(t*5)|0)*10)|0)+1,1,1)}continue}
@@ -7159,28 +7513,89 @@ function draw(t){
     if(d.power&&POWER[i]>.25&&((t*4+x*.7+y*1.3)%3)<POWER[i]*1.6){ctx.fillStyle='#5cc4c4';ctx.fillRect(x*TS-cam.x+3+((t*8)|0)%6,y*TS-cam.y+6,1,1)}
     if(d.heat&&R()<.015&&parts.length<400)emit((x+.5)*TS,y*TS+8,1,['#8a8680'],8,.9,-4,1)}
   drawTrace(t);
-  for(const p of parts){if(p.l<.12&&R()<.5)continue;ctx.fillStyle=p.c;ctx.fillRect(Math.round(p.x-cam.x),Math.round(p.y-cam.y),p.s,p.s)}
+  {let drawn=0;for(let i=parts.length-1;i>=0&&drawn<PARTS_DRAW;i--){const p=parts[i];if(p.l<.12&&R()<.5)continue;const px=p.x-cam.x,py=p.y-cam.y;if(px<-4||py<-4||px>VW+4||py>VH+4)continue;ctx.fillStyle=p.c;ctx.fillRect(px|0,py|0,p.s,p.s);drawn++}}
   for(const r of rings){ctx.strokeStyle=r.c;ctx.globalAlpha=clamp(r.l*2,0,1);ctx.beginPath();ctx.arc(r.x-cam.x,r.y-cam.y,r.r,0,6.2832);ctx.stroke();ctx.globalAlpha=1}
   for(const f of floats)ptext(f.t,f.x-cam.x,f.y-cam.y,f.c);
   if(hurtFlash>0){ctx.fillStyle=`rgba(140,20,16,${hurtFlash*.5})`;ctx.fillRect(0,0,VW,VH)}
   if(PH_AIR[phase]&&PH_AIR[phase].tint){ctx.fillStyle=PH_AIR[phase].tint;ctx.fillRect(0,0,VW,VH)}
+  // Pipeline: sharp scene → DoF → Bayer dither (never blur already-dithered output).
+  applyDofBeforeDither();
   presentFrame();
 }
-let wantTiles=[],wantT=0;
+let wantTiles=[],wantT=0,mindOpps=[],mindOppT=0;
+// verbs that only walk / flee — not "opportunity" marks (ducts cover TRAVEL)
+const OPP_SKIP=new Set(['FLEE','AVOID','WANDER','EXPLORE','HOME','GUARD','SEEKDARK','SEEKLIGHT','FLOCK','HEEL','DRIVE','SHADOW','TRAVEL']);
+function paintOppCorners(sx,sy,reach){
+  // amber corner ticks — brighter when Mind can fire now (in reach)
+  ctx.fillStyle=reach?'rgba(255,200,96,.95)':'rgba(224,160,64,.55)';
+  const o=reach?0:1;
+  for(const[cx,cy,dx,dy]of[[1+o,1+o,1,1],[10-o,1+o,-1,1],[1+o,10-o,1,-1],[10-o,10-o,-1,-1]]){
+    ctx.fillRect(sx+cx,sy+cy,1,1);ctx.fillRect(sx+cx+dx,sy+cy,1,1);ctx.fillRect(sx+cx,sy+cy+dy,1,1);
+    if(reach){ctx.fillRect(sx+cx+dx,sy+cy+dy,1,1)}
+  }
+}
+function refreshMindOpps(){
+  const a=player;mindOpps=[];if(!a||a.dead||!a.mind)return;
+  const snap={travelTo:a.travelTo,exT:a.exT,wT:a.wT,bad:a.bad?new Map(a.bad):null,idleT:a.idleT,sim:a._simThink,thr:a._thr};
+  a._simThink=true;const seen=new Set();
+  try{
+    for(const tid of a.mind){
+      if(MANUAL&&thoughtFleeOnly(tid))continue;const T=TH[tid];if(!T)continue;
+      for(const v of T.v){
+        const name=v[0],p=v[1]||{};if(OPP_SKIP.has(name))continue;
+        if(p.when&&condWhy(a,p.when))continue;
+        if(WORK.has(name)&&(a.focus.all||0)>patience(a)&&!ESCAPE.has(name))continue;
+        let r=null;try{r=VERB[name](a,p)}catch(e){r=null}
+        // include approach-only (no act): heat for REFINE, dark for HIDE, dryrack for CURE…
+        if(!r||r.self)continue; // underfoot self-acts: Mind ▶ / tag already cover
+        if(!r.act&&!r.tile&&!r.ent)continue;
+        let x,y,key;
+        if(r.ent&&!r.ent.dead){x=r.ent.k?r.ent.x+.5:r.ent.x;y=r.ent.k?r.ent.y+.5:r.ent.y;key='e'+(r.ent.id!=null?r.ent.id:(x|0)+','+(y|0))}
+        else if(r.tile!=null){x=(r.tile%MW)+.5;y=((r.tile/MW)|0)+.5;key='t'+r.tile}
+        else continue;
+        if(seen.has(key))continue;seen.add(key);
+        const ix=x|0,iy=y|0;if(ix<0||iy<0||ix>=MW||iy>=MH||!vis[idx(ix,iy)])continue;
+        const rr=Object.assign({v:name},r),d=intentDist(a,rr),reach=d<=(r.range==null?1.2:r.range);
+        mindOpps.push({x,y,v:name,tid,reach,lab:r.lab||'',approach:!r.act});
+        if(mindOpps.length>=10)break;
+      }
+      if(mindOpps.length>=10)break;
+    }
+  }finally{a.travelTo=snap.travelTo;a.exT=snap.exT;a.wT=snap.wT;if(snap.bad)a.bad=snap.bad;a.idleT=snap.idleT;a._simThink=snap.sim;a._thr=snap.thr}
+}
+function drawMindOpps(t){
+  // diegetic Mind beacons: always on (esp. Manual — no pathing cue). Same amber language as ducts / wantTiles.
+  mindOppT-=1/60;if(mindOppT<=0){mindOppT=.7;refreshMindOpps()}
+  const ph=(t*6|0)%2;
+  for(const o of mindOpps){
+    const sx=Math.round(o.x*TS-cam.x-TS/2),sy=Math.round(o.y*TS-cam.y-TS/2);
+    paintOppCorners(sx,sy,o.reach);
+    if(o.reach){
+      ctx.strokeStyle=ph?'rgba(255,200,96,.7)':'rgba(224,160,64,.35)';
+      ctx.strokeRect(sx+.5,sy+.5,TS-1,TS-1);
+    }
+  }
+}
 function drawTrace(t){
   if(player.dead)return;
   {const insp=globalThis.__hl();if(insp&&insp.kind==='tile'){const x=(insp.i%MW)*TS-cam.x,y=((insp.i/MW)|0)*TS-cam.y;ctx.strokeStyle=insp.pinned?'#ffffff':'rgba(255,255,255,.5)';ctx.strokeRect(x+.5,y+.5,TS-1,TS-1)}
   else if(insp&&insp.kind==='actor'&&!insp.a.dead){ctx.strokeStyle=insp.pinned?'#ffffff':'rgba(255,255,255,.6)';ctx.strokeRect(Math.round(insp.a.x*TS-cam.x)-6.5,Math.round(insp.a.y*TS-cam.y)-9.5,13,14)}}
-  if(!traceOn)return;
-  // tiles the Mind would work on
-  wantT-=1/60;if(wantT<=0){wantT=1;wantTiles=[];const a=player,hows=new Set();let sup=false,fo=false;
-    for(const tid of a.mind)for(const v of TH[tid].v){if(v[0]==='EXTRACT')hows.add(v[1].how);if(v[0]==='SUPPLY')sup=true;if(v[0]==='FORAGE')fo=true}
-    if(hows.size||sup||fo){const wm=wantMat(a),sw=sup?supplyWant(a):null,src=dietOf(a).src,px=a.x|0,py=a.y|0;
-      for(let y=py-9;y<=py+9;y++)for(let x=px-14;x<=px+14;x++){if(x<0||y<0||x>=MW||y>=MH)continue;const i=idx(x,y),isF=!!map[i];
-        if(isF?!vis[i]:!(nearOpen(x,y)&&[0,1,2,3].some(d=>{const X=x+DX[d],Y=y+DY[d];return X>=0&&Y>=0&&X<MW&&Y<MH&&vis[idx(X,Y)]})))continue;
-        if((hows.size&&canExtract(a,i,isF,[...hows],wm))||(sw&&canExtract(a,i,isF,EXTRACT_VERBS,sw))||(fo&&canExtract(a,i,isF,EXTRACT_VERBS,m=>edible(src,m)>0)))wantTiles.push(i)}
-      wantTiles.sort((p,q)=>Math.hypot(p%MW-px,((p/MW)|0)-py)-Math.hypot(q%MW-px,((q/MW)|0)-py));wantTiles=wantTiles.slice(0,6)}}
-  ctx.fillStyle='rgba(224,160,64,.7)';for(const i of wantTiles){const x=(i%MW)*TS-cam.x,y=((i/MW)|0)*TS-cam.y;for(const[cx,cy,dx,dy]of[[1,1,1,1],[10,1,-1,1],[1,10,1,-1],[10,10,-1,-1]]){ctx.fillRect(x+cx,y+cy,1,1);ctx.fillRect(x+cx+dx,y+cy,1,1);ctx.fillRect(x+cx,y+cy+dy,1,1)}}
+  drawMindOpps(t);
+  // extract want-tiles + hostility rings + path: world overlay (R). Manual still gets Mind opps above without R.
+  if(!traceOn&&!MANUAL)return;
+  const showOverlay=traceOn;
+  if(showOverlay||MANUAL){
+    // tiles the Mind would extract / forage (area scout — complements single VERB pick)
+    wantT-=1/60;if(wantT<=0){wantT=1;wantTiles=[];const a=player,hows=new Set();let sup=false,fo=false;
+      for(const tid of a.mind)for(const v of TH[tid].v){if(v[0]==='EXTRACT'&&v[1])hows.add(v[1].how);if(v[0]==='SUPPLY')sup=true;if(v[0]==='FORAGE')fo=true}
+      if(hows.size||sup||fo){const wm=wantMat(a),sw=sup?supplyWant(a):null,src=dietOf(a).src,px=a.x|0,py=a.y|0;
+        for(let y=py-9;y<=py+9;y++)for(let x=px-14;x<=px+14;x++){if(x<0||y<0||x>=MW||y>=MH)continue;const i=idx(x,y),isF=!!map[i];
+          if(isF?!vis[i]:!(nearOpen(x,y)&&[0,1,2,3].some(d=>{const X=x+DX[d],Y=y+DY[d];return X>=0&&Y>=0&&X<MW&&Y<MH&&vis[idx(X,Y)]})))continue;
+          if((hows.size&&canExtract(a,i,isF,[...hows],wm))||(sw&&canExtract(a,i,isF,EXTRACT_VERBS,sw))||(fo&&canExtract(a,i,isF,EXTRACT_VERBS,m=>edible(src,m)>0)))wantTiles.push(i)}
+        wantTiles.sort((p,q)=>Math.hypot(p%MW-px,((p/MW)|0)-py)-Math.hypot(q%MW-px,((q/MW)|0)-py));wantTiles=wantTiles.slice(0,MANUAL?8:6)}}
+    for(const i of wantTiles){const x=(i%MW)*TS-cam.x,y=((i/MW)|0)*TS-cam.y;paintOppCorners(x,y,false)}
+  }
+  if(!showOverlay)return;
   // who could notice you, and from how far
   for(const b of actors){if(b.dead||b===player||!vis[idx(b.x|0,b.y|0)]||!wants(b,player))continue;const r=(b.vision+2)*(player.detMul||1)*TS;ctx.strokeStyle='rgba(210,64,44,.4)';ctx.beginPath();ctx.arc(b.x*TS-cam.x,b.y*TS-cam.y,r,0,6.2832);ctx.stroke()}
   // where the vessel is headed
@@ -7336,6 +7751,19 @@ function renderDetail(){
 }
 // ================================================================ Simple mode: icons, names and world text; everything else on demand
 let SIMPLE=(()=>{try{return localStorage.getItem('mindvessel.uimode')!=='detailed'}catch(e){return true}})();
+let MANUAL=(()=>{try{return localStorage.getItem('mindvessel.playmode')==='manual'}catch(e){return false}})();
+const stickKeys=new Set();
+function stickVec(){
+  let x=0,y=0;
+  if(stickKeys.has('ArrowLeft')||stickKeys.has('a'))x--;
+  if(stickKeys.has('ArrowRight')||stickKeys.has('d'))x++;
+  if(stickKeys.has('ArrowUp')||stickKeys.has('w'))y--;
+  if(stickKeys.has('ArrowDown')||stickKeys.has('s'))y++;
+  if(!x&&!y)return{x:0,y:0};const L=Math.hypot(x,y);return{x:x/L,y:y/L};
+}
+const stickMoving=()=>{const s=stickVec();return !!(s.x||s.y)};
+function setManual(on){MANUAL=!!on;try{localStorage.setItem('mindvessel.playmode',on?'manual':'agent')}catch(e){}
+  if(player){player._ductHold=0;player.intent=null;player.path=null;player.thinkT=0}stickKeys.clear();mindSig='';renderMenu();uiTick()}
 const GLYPH={
   pick:["..###..",".#...#.","#..#..#","...#...","...#...","...#...","...#..."],
   sword:["......#",".....##","....##.","#..##..",".###...","..#....",".#.#..."],
@@ -7409,7 +7837,7 @@ function renderMindSimple(){
   paintCapline(`${'■'.repeat(Math.min(used,cap))}<span class="${add&&used+add>cap?'bad':'acc'}">${'■'.repeat(Math.max(0,Math.min(add,cap-used)))}</span>${'□'.repeat(Math.max(0,cap-used-add))}`);
   const pat=patience(a),left=Math.max(0,pat-(a.focus.all||0)),routes=routeCache=routePreview(),cs=RG.sites[RG.cur];
   let h='';const slot=i=>`<button class="slot" data-slot="${i}">⤓ ${placing?(previewAt(placing,i)||{}).th===placing?'▶':'.':''}</button>`;
-  a.mind.forEach((tid,i)=>{const T=TH[tid],row=tr.find(r=>r.tid===tid),st=rowState(row),open=openRows.has(tid)||selTh===tid;
+  a.mind.forEach((tid,i)=>{if(MANUAL&&thoughtFleeOnly(tid))return;const T=TH[tid],row=tr.find(r=>r.tid===tid),st=rowState(row),open=openRows.has(tid)||selTh===tid;
     if(placing)h+=slot(i);
     let tail='';if(st==='x')tail=condIcon(tid,row);else if(st==='p')tail=ico('moon','cond','out of attention');
     if((st==='run'||selTh===tid)&&T.v.some(v=>v[0]==='TRAVEL')){const r=routes.find(r=>r.tid===tid);if(r&&r.to!=null){const o=RG.sites[r.to];tail+=` <span class="acc">→ ${esc(o.name)} ${dirArrow(o.x-cs.x,o.y-cs.y)}</span>`}}
@@ -7487,7 +7915,7 @@ function renderMind(){
     return'<span class="dim">→ no route yet</span>';
   };
   const slot=i=>`<button class="slot" data-slot="${i}">⤓ place here${placing?': '+esc(previewText(placing,i)):''}</button>`;
-  a.mind.forEach((tid,i)=>{const T=TH[tid],row=tr.find(r=>r.tid===tid),st=rowState(row),open=inline&&(openRows.has(tid)||selTh===tid);
+  a.mind.forEach((tid,i)=>{if(MANUAL&&thoughtFleeOnly(tid))return;const T=TH[tid],row=tr.find(r=>r.tid===tid),st=rowState(row),open=inline&&(openRows.has(tid)||selTh===tid);
     if(placing)h+=slot(i);
     h+=`<div class="row th st-${st==='-'?'none':st}${selTh===tid?' sel':''}${i===mindSel?' kb':''}${realT()<mindPulseUntil&&mindPulseIds.has(tid)?' pulse':''}" draggable="true" data-t="${tid}" data-i="${i}"><span class="hd" aria-hidden="true">≡</span><span class="no">${i+1}</span><span class="ic">${ST_ICON[st]}</span><span class="nm">${T.n}</span><span class="why">${travelWhy(tid,st,row)||shortWhy(st,row)}</span><span class="thb"><button data-up="${i}" aria-label="Raise ${T.n}">▲</button><button data-dn="${i}" aria-label="Lower ${T.n}">▼</button></span><button data-rm="${i}" aria-label="Remove ${T.n}">x</button></div>`;
     if(open)h+=verbRows(tid,row)});
@@ -7852,6 +8280,7 @@ function ductsWanted(){
   const a=player;if(!a||a.dead||!RG||mapOpen)return false;
   const n=exits.filter(e=>explored[e.i]).length;if(n>ductSeenN)ductFlashT=realT()+4;ductSeenN=n;
   if(realT()<ductFlashT||realT()<ductHold)return true;
+  if(MANUAL&&((a._ductHold||0)>0||a.mind.some(t=>TH[t]&&TH[t].v.some(v=>v[0]==='TRAVEL'))))return true;
   if(a.intent&&a.intent.v==='TRAVEL')return true;
   if(patience(a)-(a.focus.all||0)<30)return true;
   if(selTh&&a.mind.includes(selTh)&&TH[selTh].v.some(v=>v[0]==='TRAVEL'))return true;
@@ -7869,8 +8298,10 @@ function updDucts(){
     if(inside){html=`${esc(s.name)}${sealMap&&sealMap[e.i]?' ×':''}${pulse?' <span class="p">●</span>':''} ▾`;x=sx;y=sy-6*v.s;tf='translate(-50%,-100%)'}
     else{const dx=sx-cx,dy=sy-cy,k=Math.min(((R-L)/2-70)/Math.max(1e-3,Math.abs(dx)),((B-T)/2-12)/Math.max(1e-3,Math.abs(dy)));
       x=cx+dx*k;y=cy+dy*k;tf='translate(-50%,-50%)';html=`${dirArrow(dx,dy)} ${esc(s.name)}${pulse?' <span class="p">●</span>':''}`}
-    if(el.innerHTML!==html)el.innerHTML=html;el.classList.toggle('rt',routeTo.has(e.to));
-    el.title=`Duct to ${s.name} (${s.type}, tier ${s.tier})${routeTo.has(e.to)?'. '+routeCache.filter(r=>r.to===e.to).map(r=>TH[r.tid].n).join(', ')+' would take it':''}`;
+    const holdHere=MANUAL&&(player._ductHold||0)>0&&idx(player.x|0,player.y|0)===e.i;
+    if(holdHere)html+=` · ${Math.min(100,Math.round(player._ductHold/DUCT_HOLD_T*100))}%`;
+    if(el.innerHTML!==html)el.innerHTML=html;el.classList.toggle('rt',routeTo.has(e.to)||holdHere);
+    el.title=`Duct to ${s.name} (${s.type}, tier ${s.tier})${routeTo.has(e.to)?'. '+routeCache.filter(r=>r.to===e.to).map(r=>TH[r.tid].n).join(', ')+' would take it':''}${MANUAL?'. Hold still to board when a Travel Thought wants it.':''}`;
     el.style.left=Math.round(x)+'px';el.style.top=Math.round(y)+'px';el.style.transform=tf}
   for(const[i,el]of ductEls)if(!live.has(i)){el.remove();ductEls.delete(i)}
 }
@@ -7942,6 +8373,7 @@ function uiTick(){
   $('hb-hp').querySelector('b').style.width=Math.round(clamp(hp,0,1)*100)+'%';$('hb-hp').classList.toggle('low',hp<.35);
   $('hb-en').querySelector('b').style.width=Math.round(clamp(en,0,1)*100)+'%';$('hb-en').classList.toggle('low',en<.25);
   $('b-pause').textContent=paused?'▶':'▌▌';$('b-speed').textContent='x'+speed;
+  const bp=$('b-play');if(bp){bp.textContent=MANUAL?'man':'auto';bp.title=MANUAL?'Control: Manual — WASD steers (P)':'Control: Mind — vessel acts from Thoughts (P)';bp.setAttribute('aria-pressed',MANUAL?'true':'false');bp.classList.toggle('on',MANUAL)}
 }
 // ---------------------------------------------------------------- menu, keys, dialogs
 let traceOn=true,menuOpen=false,menuMore=false;
@@ -8024,6 +8456,7 @@ function netOnMsg(raw){
   if(msg.t==='welcome'){
     if(!applyNetWelcome(msg))return;
     paused=false;dlgOpen=false;try{$('dlg').hidden=true}catch(e){}
+    try{if(inMenu)hideMainMenu()}catch(e){}
     log('Connected to the shared world.','acc');
     if(player)bark(player,'linked','idea');
     try{$('now').textContent='Connected to friends\' world.'}catch(e){}
@@ -8215,20 +8648,21 @@ function renderMenu(){
   const friendsBtn=netActive()
     ?`<button class="mi hi" data-k="friends">Friends: connected<span class="r">●</span></button><button class="mi" data-k="netsigh">Signal<span class="r">.</span></button><button class="mi" data-k="votep">Vote pause</button><button class="mi" data-k="votes">Vote speed</button><button class="mi" data-k="netdisc">Disconnect</button>`
     :`<button class="mi hi" data-k="friends">Play with friends…</button>`;
+  const playBtn=`<button class="mi" data-k="play">Control: ${MANUAL?'Manual':'Auto'}<span class="r">P</span></button>`;
   if(SIMPLE&&!menuMore){
-    $('menu').innerHTML=`<button class="mi" data-k="u">Interface: Simple<span class="r">U</span></button><button class="mi" data-k="h">Help<span class="r">H</span></button><button class="mi" data-k="m">Region map<span class="r">M</span></button><button class="mi" data-k="t">Theme<span class="r">T</span></button>`+
+    $('menu').innerHTML=`<button class="mi" data-k="u">Interface: Simple<span class="r">U</span></button>${playBtn}<button class="mi" data-k="h">Help<span class="r">H</span></button><button class="mi" data-k="m">Region map<span class="r">M</span></button><button class="mi" data-k="t">Theme<span class="r">T</span></button>`+
       friendsBtn+
       `<button class="mi" data-more="1">More…</button>`+
-      `<h3>Run</h3><button class="mi" data-k="n">${armed('n')?'Click again to abandon':'Abandon vessel'}<span class="r">N x2</span></button>`;
+      `<h3>Run</h3><button class="mi" data-k="n">${armed('n')?'Click again to abandon':'Abandon vessel'}<span class="r">N x2</span></button><button class="mi" data-k="quit">Quit to menu</button>`;
     return;
   }
-  $('menu').innerHTML=`<button class="mi" data-k="u">Interface: ${SIMPLE?'Simple':'Detailed'}<span class="r">U</span></button><button class="mi" data-k="h">Help<span class="r">H</span></button><button class="mi" data-k="m">Region map<span class="r">M</span></button><button class="mi" data-k="r">World overlay: ${tg(traceOn)}<span class="r">R</span></button><button class="mi" data-k="d">Dither: ${tg(ditherOn)}<span class="r">D</span></button><button class="mi" data-k="t">Theme<span class="r">T</span></button>`+
+  $('menu').innerHTML=`<button class="mi" data-k="u">Interface: ${SIMPLE?'Simple':'Detailed'}<span class="r">U</span></button>${playBtn}<button class="mi" data-k="h">Help<span class="r">H</span></button><button class="mi" data-k="m">Region map<span class="r">M</span></button><button class="mi" data-k="r">World overlay: ${tg(traceOn)}<span class="r">R</span></button><button class="mi" data-k="d">Dither: ${tg(ditherOn)}${MANUAL?'':'<span class="r">D</span>'}</button><button class="mi" data-k="t">Theme<span class="r">T</span></button>`+
     (SIMPLE?`<button class="mi" data-more="0">Less…</button>`:'')+
     `<h3>Friends</h3>${friendsBtn}`+
     `<h3>Log</h3>`+[['story','Story'],['detail','Detail'],['region','Region'],['roll','Rolls']].map(([k,n])=>`<button class="mi" data-ch="${k}">${n}: ${tg(LOGCH[k])}</button>`).join('')+
     `<h3>Pause when...</h3>`+[['threat','a threat appears'],['thought','a Thought is learned'],['bored','attention runs out'],['region','news is heard']].map(([k,n])=>`<button class="mi" data-ap="${k}">${n}: ${tg(AUTOPAUSE[k])}</button>`).join('')+
     `<h3>Tools</h3><button class="mi" data-k="debug">Debug settings...<span class="r">F9</span></button>`+
-    `<h3>Run</h3><button class="mi" data-k="n">${armed('n')?'Click again to abandon':'Abandon vessel'}<span class="r">N x2</span></button><button class="mi" data-k="w">${armed('w')?'Click again to wipe the region':'Wipe region'}<span class="r">x2</span></button>`;
+    `<h3>Run</h3><button class="mi" data-k="n">${armed('n')?'Click again to abandon':'Abandon vessel'}<span class="r">N x2</span></button><button class="mi" data-k="w">${armed('w')?'Click again to delete this region':'Delete region…'}${MANUAL?'':'<span class="r">x2</span>'}</button><button class="mi" data-k="quit">Quit to menu</button>`;
 }
 let debugOpen=false;
 function renderDebug(){
@@ -8242,7 +8676,9 @@ function renderDebug(){
 <label><span>Monochrome</span><input type="checkbox" data-db="mono"${c('mono')}></label>
 <h3>Motion</h3>
 <label><span>Procedural pose</span><input type="checkbox" data-db="pose"${c('pose')}></label>
-<div class="row dim">chunk-chain bodies: snake · biped · skel · quad · crab · blob · bug · flyer · plant · mass · brute</div>
+<label><span>Set DoF</span><input type="checkbox" data-db="dof"${c('dof')}></label>
+<label><span>DoF blur (px)</span><input type="range" min="0" max="5" step="0.1" data-db="dofMax" value="${DBG.dofMax!=null?DBG.dofMax:2.4}"><output>${(+(DBG.dofMax!=null?DBG.dofMax:2.4)).toFixed(1)}</output></label>
+<div class="row dim">chunk-chain bodies · DoF runs on scene before Bayer dither; focus disk stays sharp</div>
 <h3>Log</h3>
 <label><span>Region events (⟨here⟩ ⟨next door⟩ ⟨far⟩)</span><input type="checkbox" data-db="regionLog"${c('regionLog')}></label>
 <label><span>Show the Region channel</span><input type="checkbox" data-db="chRegion"${LOGCH.region?' checked':''}></label>
@@ -8262,19 +8698,20 @@ function dbgHardPauseSnapshot(){
 function toggleDebug(on){debugOpen=on==null?!debugOpen:on;$('debug').hidden=!debugOpen;if(debugOpen)toggleMenu(false);renderDebug()}
 $('debug').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('button');if(!b)return;if(b.dataset.dx)toggleDebug(false);
   if(b.dataset.dbSnap)dbgHardPauseSnapshot();
-  if(b.dataset.dbReset){Object.assign(DBG,{levels:16,matrix:8,strength:.2,mono:false,regionLog:true,pose:true,agentLog:false});ditherOn=true;saveDbg();renderDebug()}});
+  if(b.dataset.dbReset){Object.assign(DBG,{levels:16,matrix:8,strength:.2,mono:false,regionLog:true,pose:true,dof:true,dofMax:2.4,agentLog:false});delete DBG.view3d;ditherOn=true;saveDbg();renderDebug()}});
 $('debug').addEventListener('input',e=>{const el=e.target,k=el.dataset.db;if(!k)return;
   if(k==='dither')ditherOn=el.checked;else if(k==='chRegion')setChannel('region',el.checked);else if(k==='chRoll')setChannel('roll',el.checked);
   else if(el.type==='checkbox')DBG[k]=el.checked;else DBG[k]=+el.value;
-  const o=el.parentNode.querySelector('output');if(o){const v=+el.value;o.textContent=k==='strength'?v.toFixed(2):el.value}
+  const o=el.parentNode.querySelector('output');if(o){const v=+el.value;o.textContent=k==='strength'||k==='dofMax'?v.toFixed(k==='dofMax'?1:2):el.value}
   saveDbg();renderMenu()});
 document.addEventListener('click',e=>{if(debugOpen&&!e.target.closest('#debug')&&!e.target.closest('#menu'))toggleDebug(false)});
 function toggleMenu(on){menuOpen=on==null?!menuOpen:on;if(!menuOpen)menuMore=false;$('menu').hidden=!menuOpen;$('b-menu').setAttribute('aria-expanded',String(menuOpen));renderMenu()}
 $('b-menu').addEventListener('click',e=>{e.stopPropagation();toggleMenu()});
 $('menu').addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('button');if(!b)return;const d=b.dataset;
   if(d.more!=null){menuMore=d.more==='1';renderMenu();return}
-  if(d.k){cmd(d.k);if(d.k==='h'||d.k==='m'||d.k==='debug'||d.k==='friends'||d.k==='netjoin'||d.k==='nethost'||((d.k==='n'||d.k==='w')&&!armed(d.k)&&d.k!==confirmK))toggleMenu(false)}if(d.toast){TOAST[d.toast]=!TOAST[d.toast]}if(d.ch)setChannel(d.ch,!LOGCH[d.ch]);if(d.ap)AUTOPAUSE[d.ap]=!AUTOPAUSE[d.ap];renderMenu()});
+  if(d.k){cmd(d.k);if(d.k==='h'||d.k==='m'||d.k==='debug'||d.k==='friends'||d.k==='netjoin'||d.k==='nethost'||d.k==='quit'||((d.k==='n'||d.k==='w')&&!armed(d.k)&&d.k!==confirmK))toggleMenu(false)}if(d.toast){TOAST[d.toast]=!TOAST[d.toast]}if(d.ch)setChannel(d.ch,!LOGCH[d.ch]);if(d.ap)AUTOPAUSE[d.ap]=!AUTOPAUSE[d.ap];renderMenu()});
 $('b-pause').addEventListener('click',()=>cmd('p'));$('b-speed').addEventListener('click',()=>cmd('s'));
+$('b-play').addEventListener('click',()=>cmd('play'));
 $('net-badge').addEventListener('click',()=>showFriendsDlg(netActive()?'join':'host'));
 $('net-badge').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showFriendsDlg(netActive()?'join':'host')}});
 function updFk(){uiTick();renderMenu()}
@@ -8284,6 +8721,7 @@ function needConfirm(k,msg){if(confirmK===k&&performance.now()-confirmT<2500){co
 function cmd(k){
   switch(k){
     case'h':showHelp();break;
+    case'play':setManual(!MANUAL);break;
     case'p':
       // #region agent log
       _dbgLog('A','cmd:pause','pause toggled',{to:!paused,from:paused,stack:String(new Error().stack||'').split('\n').slice(1,5).map(s=>s.trim())});
@@ -8310,19 +8748,44 @@ function cmd(k){
     case'r':traceOn=!traceOn;break;
     case'n':if(player.dead)newVessel();else if(needConfirm('n','Press N again to abandon this vessel.'))abandon();break;
     case't':{const r=document.documentElement,cur=r.getAttribute('data-theme');r.setAttribute('data-theme',cur==='dark'?'light':cur==='light'?'auto':'dark');break}
-    case'w':if(needConfirm('w','Press again to start a new region and forget the deepest tier.')){save={lib:START_LIB.slice(),mind:DEFAULT_MIND.slice(),best:1,src:{}};persist();clearCampaign();log('Region wiped.','bad');RG=null;closeMap();closeCard();newVessel()}break;
+    case'quit':leavePlayToMenu();break;
+    case'w':
+      if(typeof netActive==='function'&&netActive()){log('Cannot delete the host world from here. Quit to menu.','bad');break}
+      if(needConfirm('w','Press again to delete this Region and return to the menu.')){
+        save={lib:START_LIB.slice(),mind:DEFAULT_MIND.slice(),best:1,src:{}};persist();
+        clearCampaign();log('Region deleted.','bad');
+        toggleMenu(false);
+        try{if(typeof netActive==='function'&&netActive())netDisconnect()}catch(e){}
+        softResetPlay();
+        showMainMenu();
+      }
+      break;
   }
   updFk();
 }
 document.addEventListener('keydown',e=>{
+  if(inMenu){if(mmOnKey(e)){e.preventDefault();return}if(dlgOpen&&(e.key==='Enter'||e.key==='Escape')){e.preventDefault();closeDlg()}return}
   if(dlgOpen){if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();closeDlg()}return}
   if(e.target.closest&&(e.target.closest('input')||(e.target.closest('#mindrows')&&(e.key.startsWith('Arrow')||e.key==='Delete'||e.key==='Backspace'||e.key==='Enter'))))return;
-  if(e.key==='Escape'){if(debugOpen)toggleDebug(false);else if(menuOpen)toggleMenu(false);else if(placing){placing=null;mindSig='';renderMind()}else if(mapOpen)closeMap();else if(insp)closeCard();else if(drawerOpen)toggleDrawer(false);e.preventDefault();return}
-  const km={' ':'p',h:'h',s:'s',d:'d',m:'m',l:'l',b:'b',g:'g',v:'v',r:'r',n:'n',t:'t',F1:'h',F2:'p',F3:'s',F4:'m',F9:'debug','`':'debug',u:'u'};
+  if(e.key==='Escape'){if(debugOpen)toggleDebug(false);else if(menuOpen)toggleMenu(false);else if(placing){placing=null;mindSig='';renderMind()}else if(mapOpen)closeMap();else if(insp)closeCard();else if(drawerOpen)toggleDrawer(false);else leavePlayToMenu();e.preventDefault();return}
+  // manual: WASD / arrows steer the vessel (meta W/S/D disabled; use menu / F3 for speed)
+  if(MANUAL&&!e.metaKey&&!e.ctrlKey&&!e.altKey){
+    const mk=e.key.length===1?e.key.toLowerCase():e.key;
+    if(mk==='w'||mk==='a'||mk==='s'||mk==='d'||mk==='ArrowLeft'||mk==='ArrowRight'||mk==='ArrowUp'||mk==='ArrowDown'){
+      stickKeys.add(mk);e.preventDefault();return}
+  }
+  const km={' ':'p',h:'h',s:'s',d:'d',m:'m',l:'l',b:'b',g:'g',v:'v',r:'r',n:'n',t:'t',F1:'h',F2:'p',F3:'s',F4:'m',F9:'debug','`':'debug',u:'u',p:'play'};
+  // Space still pauses; letter P toggles play mode. In manual, do not bind S/D/W to meta.
+  if(MANUAL){delete km.s;delete km.d;delete km.w}
   const k=km[e.key];if(!k)return;
   if(e.target.closest&&e.target.closest('button')&&e.key===' ')return;
   e.preventDefault();cmd(k);
 });
+document.addEventListener('keyup',e=>{
+  const mk=e.key.length===1?e.key.toLowerCase():e.key;
+  stickKeys.delete(mk);stickKeys.delete(e.key);
+});
+window.addEventListener('blur',()=>stickKeys.clear());
 function showDlg(title,html,label,cb){
   // #region agent log
   _dbgLog('D','showDlg','dialog opened',{title,label,gameTime,body:player&&player.equip&&player.equip.body&&player.equip.body.kind,stack:String(new Error().stack||'').split('\n').slice(1,5).map(s=>s.trim())});
@@ -8361,22 +8824,26 @@ function coach(i){const c=$('coach');for(const p of document.querySelectorAll('.
   el.classList.add('coached');$('coach-next').onclick=()=>coach(i+1);$('coach-skip').onclick=()=>coach(COACH_N);$('coach-next').focus()}
 const START=`<p>You don't steer this vessel. You shape its <b>Mind</b>.</p>
 <p>The Mind is a list of Thoughts. Several times a second the vessel reads it from the top and does the first one that can act. Add, remove and reorder Thoughts while it lives.</p>
-<p class="dim">H help . Space pause</p>`;
-const HELP=`<p>You never move the vessel. You shape its <b>Mind</b>, live, while it acts.</p>
+<p class="dim">H help . Space pause . P manual control (optional)</p>`;
+const HELP=`<p>You never move the vessel (default). You shape its <b>Mind</b>, live, while it acts.</p>
 <p>The Mind reads from the top several times a second. Inside each Thought it tries the verbs in order; a verb runs only if its condition holds and it has something to do. Rows show ▶ running, ✗ condition false, - nothing to do, ⏸ out of attention. Select a row to see each verb and why. Drag rows (or Shift+↑↓, or ▲▼ on a phone) to reorder; x removes. Attention runs out with open-ended work at one site, and then lower Thoughts such as travel take over.</p>
+<p><b>Manual control</b> (P, or Menu → Control): WASD / arrows steer the vessel. The Mind still prioritises auto-actions, but only when already in reach — it never walks you. Flee Thoughts are hidden; you run yourself. Stand still on a duct that a Travel Thought wants and hold to board. Moving cancels busy work. Speed is F3; dither and wipe stay in the menu.</p>
 <p>The <b>Memory</b> (L) holds this vessel's Thoughts. ★ marks those that would act here right now. Drag a card onto the Mind to see what it would do at that position before letting go, or press + to add it where it would run.</p>
 <p>Click anything in the world for a card: what it is made of, which of your Thoughts would use it, and a known Thought that would. Click materials inside it to follow them.</p>
 <p><b>Energy</b>: every body burns it; each species feeds its own way. <b>Material world</b>: walls and floors come apart with their own verbs, refine over heat, assemble gear and tools, build.</p>
 <p><b>Three registers of work</b> coexist across the region: Bone (smoke, hide, grit, rite), Plate (scrap, steam, stamp, meter), Lease (live lines, badge, wet lab). Sites lean one way or another; civilizations mix techniques, and parasite Thoughts cross the registers on purpose.</p>
 <p><b>The region</b> keeps turning while you play. News of it reaches the vessel only through the world: people talk about what they know (more readily if they carry social Thoughts), and the vessel follows what it hears only with a social Thought of its own (Listen, Barter, Proselytize); otherwise it catches fragments. Read the Feeds taps live terminals, panels and conduits for news from across the region. Click a piece of news to see it on the map (M). Travel Thoughts in the Mind show where they would go (→ site). Known ducts are labelled in the world, at the edge pointing toward them when off screen, whenever travel is in play: a travel Thought running or selected, attention nearly spent, a new duct found, or news from next door. Amber marks the ones your Thoughts would take. Click the site name in the header for the map.</p>
 <p>Thoughts die with the vessel. An inscription, a rack, a beacon or a sealed duct is a thing left in the world, and the region keeps it.</p>
-<p class="dim">Space pause . S speed . M map . L memory . B vessel . G log . R world overlay . V rolls . D dither . F9 debug . N new vessel . T theme . Esc close</p>`;
+<p class="dim">Space pause . P manual/Mind . S speed (F3 in manual) . M map . L memory . B vessel . G log . R world overlay . V rolls . D dither . F9 debug . N new vessel . T theme . Esc close</p>`;
+const HELP_MANUAL=`<p><b>Manual control.</b> WASD / arrows steer. The Mind auto-acts only in reach (fight, loot, rest, craft…). Flee is yours — those Thoughts are hidden. Hold still on a duct a Travel Thought wants to leave. Move to cancel busy work.</p>
+<p>Amber corner ticks on things in the world mark Mind opportunities: dim = walk closer, bright + pulse = in reach and about to fire. Amber duct names are Travel. <span class="dim">P</span> returns to Mind-only control. Space pause · F3 speed · M map · L memory · U interface.</p>`;
 function glyphLegend(){
   const conds=[['heart','health'],['bolt','energy'],['warn','blocked (threat or other)'],['moon','dark / attention'],['crowd','outnumbered'],['food','low on food']];
   const chip=(g,t,c)=>`<span style="display:inline-flex;gap:.3em;align-items:center;margin:0 .9em .2em 0">${ico(g,c)} <span class="dim">${t}</span></span>`;
-  return`<p><b>Simple mode.</b> Mind reads top → bottom: ▶ runs · ✗ blocked · . waits. Amber bar = attention. Tap a Thought for verbs; tap again (▾) for its card. ＋ opens Memory; pulsing cards would act here. Tap the world for a card. <span class="dim">U</span> = Detailed.</p>
+  if(MANUAL)return HELP_MANUAL+`<p>${conds.map(([g,n])=>chip(g,n,'bad')).join('')}</p>`;
+  return`<p><b>Simple mode.</b> Mind reads top → bottom: ▶ runs · ✗ blocked · . waits. Amber bar = attention. Tap a Thought for verbs; tap again (▾) for its card. ＋ opens Memory; pulsing cards would act here. Tap the world for a card. <span class="dim">U</span> = Detailed · <span class="dim">P</span> = Manual.</p>
 <p>${conds.map(([g,n])=>chip(g,n,'bad')).join('')}</p>`}
-function showHelp(){showDlg('MIND//VESSEL',SIMPLE?glyphLegend():HELP,'Continue',null)}
+function showHelp(){showDlg('MIND//VESSEL',MANUAL?HELP_MANUAL:(SIMPLE?glyphLegend():HELP),'Continue',null)}
 function showDeath(){
   const C=player.comp;closeCard();placing=null;
   const site=RG.sites[RG.cur],reg=primaryReg(site),regN={bone:'smoke and hide',plate:'stamp and meter',lease:'badge and line'}[reg]||reg;
@@ -8398,8 +8865,80 @@ $('app').classList.toggle('simple',SIMPLE);
 globalThis.__hl=()=>insp||(hoverPick&&hoverPick.kind!=='tile'?hoverPick:hoverPick&&{...hoverPick,pinned:false});
 
 // ================================================================ campaign persistence (world survives reload)
-const CAMPAIGN_KEY='mindvessel.campaign.v1';
+const LEGACY_CAMPAIGN_KEY='mindvessel.campaign.v1';
+const REGIONS_KEY='mindvessel.regions.v1';
+const SLOT_PREFIX='mindvessel.campaign.slot.';
+const MAX_REGION_SLOTS=12;
+const CAMPAIGN_VER=1;
+// Schema migrations: ver n → n+1. Keep empty until a breaking field lands (save-systems skill).
+const CAMPAIGN_MIGRATE={};
+function migrateCampaign(raw){
+  let v=raw.ver|0;if(!v)v=1;
+  if(v>CAMPAIGN_VER){console.warn('campaign save newer than this build',v);return null}
+  while(v<CAMPAIGN_VER){const step=CAMPAIGN_MIGRATE[v];if(!step){console.warn('missing campaign migrate',v);return null}
+    raw=step(raw);v++;raw.ver=v}
+  raw.ver=CAMPAIGN_VER;return raw;
+}
 let campSaveT=null,bootingCampaign=false;
+let regionIndex={activeId:null,slots:[]};
+let inMenu=false,mmView='main',mmSel=0,mmStatus='',mmConfirm=null;
+let mmHost=null; // {active,worlds:[]} or null if unreachable
+function slotKey(id){return SLOT_PREFIX+id}
+function newSlotId(){return 'r_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6)}
+function saveRegionIndex(){try{localStorage.setItem(REGIONS_KEY,JSON.stringify(regionIndex))}catch(e){}}
+function loadRegionIndex(){
+  let raw;try{raw=JSON.parse(localStorage.getItem(REGIONS_KEY)||'null')}catch(e){raw=null}
+  if(raw&&Array.isArray(raw.slots)){regionIndex={activeId:raw.activeId||null,slots:raw.slots};return}
+  regionIndex={activeId:null,slots:[]};
+}
+function migrateLegacyCampaign(){
+  loadRegionIndex();
+  if(regionIndex.slots.length)return;
+  let raw;try{raw=localStorage.getItem(LEGACY_CAMPAIGN_KEY)}catch(e){return}
+  if(!raw)return;
+  try{
+    const blob=JSON.parse(raw);
+    if(!blob||!blob.RG)return;
+    const id='legacy';
+    const st=blob.RG.sites&&blob.RG.sites[blob.RG.start];
+    const name=(st&&st.name)||'Region 1';
+    localStorage.setItem(slotKey(id),raw);
+    regionIndex={activeId:id,slots:[{id,name,updated:Date.now(),best:(blob.meta&&blob.meta.best)||1,sites:(blob.RG.sites||[]).length}]};
+    saveRegionIndex();
+    localStorage.removeItem(LEGACY_CAMPAIGN_KEY);
+  }catch(e){console.warn('legacy campaign migrate failed',e)}
+}
+function ensureActiveSlot(){
+  migrateLegacyCampaign();
+  loadRegionIndex();
+  if(regionIndex.activeId&&regionIndex.slots.some(s=>s.id===regionIndex.activeId))return regionIndex.activeId;
+  const id=newSlotId();
+  regionIndex.slots.push({id,name:'Region',updated:Date.now(),best:1});
+  regionIndex.activeId=id;
+  saveRegionIndex();
+  return id;
+}
+function touchSlotMeta(extra){
+  const id=regionIndex.activeId;if(!id)return;
+  const s=regionIndex.slots.find(x=>x.id===id);if(!s)return;
+  s.updated=Date.now();
+  if(RG){s.sites=RG.sites.length;const st=RG.sites[RG.start];if(st&&st.name)s.name=st.name}
+  if(save&&save.best)s.best=save.best;
+  if(extra)Object.assign(s,extra);
+  saveRegionIndex();
+}
+function setActiveSlot(id){
+  loadRegionIndex();
+  if(!regionIndex.slots.some(s=>s.id===id))return false;
+  regionIndex.activeId=id;saveRegionIndex();return true;
+}
+function deleteSoloSlot(id){
+  loadRegionIndex();
+  try{localStorage.removeItem(slotKey(id))}catch(e){}
+  regionIndex.slots=regionIndex.slots.filter(s=>s.id!==id);
+  if(regionIndex.activeId===id)regionIndex.activeId=regionIndex.slots[0]?regionIndex.slots[0].id:null;
+  saveRegionIndex();
+}
 function serTA(a){
   if(!a)return null;
   const u=new Uint8Array(a.buffer,a.byteOffset,a.byteLength);
@@ -8473,38 +9012,53 @@ function flushCurDun(){
   if(!RG||!RG.inside)return;const s=RG.sites[RG.cur];if(!s||!s.dun)return;
   Object.assign(s.dun,{map,blk,flr,stock,bmat,lights,rooms,startRoom,exits,lvlSeed,ECHO,POWER,slick,
     objs:objs.filter(o=>!(o.k==='art'&&!o.inscribed)&&!(o.k==='item'&&o.it&&o.it.bait))});
+  // Never persist the tile bitmap into cold site state.
+  s.dun.lvlCanvas=null;
   syncSite(s);
 }
-function clearCampaign(){try{localStorage.removeItem(CAMPAIGN_KEY)}catch(e){}}
+function clearCampaign(){
+  loadRegionIndex();
+  const id=regionIndex.activeId;
+  if(id)deleteSoloSlot(id);
+  else try{localStorage.removeItem(LEGACY_CAMPAIGN_KEY)}catch(e){}
+}
 function saveCampaign(){
-  if(!RG||bootingCampaign)return;
+  if(!RG||bootingCampaign||inMenu)return;
   // Don't overwrite the solo campaign with a shared host world
   if(typeof netActive==='function'&&netActive())return;
   try{
-    flushCurDun();
+    const id=ensureActiveSlot();
+    flushCurDun();pruneDunCanvases();
     const civs=RG.civs.map(serializeCiv);
+    // Slim: only serialize recent / current duns. Full-world base64 of every visit was the hitch that grew over a run.
     const sites=RG.sites.map(s=>{
+      const keepDun=!!(s.dun&&(s.id===RG.cur||(s.visited&&(s.lastVisit==null||RG.tick-(s.lastVisit||0)<220))));
       return{id:s.id,x:s.x,y:s.y,nb:s.nb,name:s.name,type:s.type,tier:s.tier,base:s.base,res:s.res,N:s.N,Q:s.Q,S:s.S,F:s.F,
         sp:s.sp,arts:s.arts,ruins:s.ruins,read:s.read,seed:s.seed,collapseT:s.collapseT,warT:s.warT,phase:s.phase,cx:s.cx,avail:s.avail,reg:s.reg,hold:siteIsHold(s),
-        dun:serializeSiteDun(s.dun),dunPowered:s.dunPowered||0,civ:s.civ?s.civ.id:null,km:s.km||null,
+        dun:keepDun?serializeSiteDun(s.dun):null,dunPowered:keepDun?(s.dunPowered||0):0,civ:s.civ?s.civ.id:null,km:s.km||null,
         visited:!!s.visited,heardOf:!!s.heardOf,lastVisit:s.lastVisit,marked:s.marked,fallen:s.fallen||[],pulseT:s.pulseT,
         scar:s.scar||0,scarAge:s.scarAge||0,crew:s.crew||0,bloomT:s.bloomT,fallSeed:s.fallSeed||null,fallReg:s.fallReg||null,clearT:s.clearT,newsHot:s.newsHot,
         rite:s.rite||0,A:s.A||0,sealTo:[...(s.sealTo instanceof Set?s.sealTo:(s.sealTo||[]))]};
     });
-    const blob={ver:1,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:!!RG.inside,
+    const blob={ver:CAMPAIGN_VER,RG:{sites,start:RG.start,cur:RG.cur,prev:RG.prev,tick:RG.tick,civs,crit:RG.crit,news:RG.news||[],inside:!!RG.inside,
         edgeBan:[...(RG.edgeBan||[])],hopBan:RG.hopBan||null,siteDone:[...(RG.siteDone||[])]},
       cyc,newsId,nextId,gameTime,meta:{best:save.best},
       vessel:player?{save:{lib:save.lib,mind:save.mind,src:save.src,best:save.best,newT:[...(save.newT||[])]},
         vmem:serializeVmem(vmem),heardN:[...heardN],scanned:[...scanned],tileFeed:[...tileFeed],stats,depth,
         player:serializeActor(player),followers:followers().map(serializeActor)}:null};
-    localStorage.setItem(CAMPAIGN_KEY,JSON.stringify(blob));
+    localStorage.setItem(slotKey(id),JSON.stringify(blob));
+    touchSlotMeta();
     try{localStorage.setItem(SAVE_KEY,JSON.stringify({best:save.best}))}catch(e){}
-  }catch(e){console.warn('campaign save failed',e)}
+  }catch(e){
+    console.warn('campaign save failed',e);
+    const quota=e&&(e.name==='QuotaExceededError'||e.code===22||e.code===1014);
+    if(quota&&typeof log==='function')log('Save full — storage quota. Wipe old data or free space.','bad');
+  }
 }
-function scheduleCampaignSave(){if(bootingCampaign)return;if(campSaveT)clearTimeout(campSaveT);campSaveT=setTimeout(()=>{campSaveT=null;saveCampaign()},900)}
-function loadCampaign(){
-  let raw;try{raw=JSON.parse(localStorage.getItem(CAMPAIGN_KEY)||'null')}catch(e){return false}
+function scheduleCampaignSave(){if(bootingCampaign||inMenu)return;if(campSaveT)clearTimeout(campSaveT);campSaveT=setTimeout(()=>{campSaveT=null;saveCampaign()},900)}
+function loadCampaignFromRaw(raw){
   if(!raw||!raw.RG||!raw.RG.sites||!raw.RG.sites.length)return false;
+  raw=migrateCampaign(raw);if(!raw)return false;
   bootingCampaign=true;
   try{
     newsId=raw.newsId||0;nextId=raw.nextId||1;gameTime=raw.gameTime||0;cyc=raw.cyc||cyc;
@@ -8537,13 +9091,240 @@ function loadCampaign(){
     bootingCampaign=false;return 'world';
   }catch(e){console.warn('campaign load failed',e);RG=null;bootingCampaign=false;return false}
 }
-addEventListener('beforeunload',()=>{try{saveCampaign()}catch(e){}});
-addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')try{saveCampaign()}catch(e){}});
+function loadCampaign(){
+  migrateLegacyCampaign();
+  loadRegionIndex();
+  const id=regionIndex.activeId;
+  if(!id)return false;
+  let raw;try{raw=JSON.parse(localStorage.getItem(slotKey(id))||'null')}catch(e){return false}
+  return loadCampaignFromRaw(raw);
+}
+function loadSoloSlot(id){
+  if(!setActiveSlot(id))return false;
+  let raw;try{raw=JSON.parse(localStorage.getItem(slotKey(id))||'null')}catch(e){return false}
+  return loadCampaignFromRaw(raw);
+}
+addEventListener('beforeunload',()=>{try{if(!inMenu)saveCampaign()}catch(e){}});
+addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&!inMenu)try{saveCampaign()}catch(e){}});
+
+// ================================================================ main menu (Regions)
+const MM_OUTLINE='Control beings by changing their thoughts. Manual mode controls traversal, while thoughts still auto-fire. Explore or observe. Every life in the Katakomb is different.';
+function mmEntries(){
+  loadRegionIndex();
+  const solo=regionIndex.slots.map(s=>({kind:'solo',id:s.id,name:s.name||'Region',meta:s}));
+  const host=(mmHost&&mmHost.worlds||[]).filter(w=>w.name!=='memory'||!(mmHost.worlds.length>1)).map(w=>({kind:'host',id:w.name,name:w.name,meta:w,active:mmHost.active===w.name}));
+  return[...solo.map(e=>({...e,label:'solo'})),...host.map(e=>({...e,label:'host'}))];
+}
+function softResetPlay(){
+  try{if(typeof netDisconnect==='function')netDisconnect()}catch(e){}
+  try{closeMap()}catch(e){}
+  try{closeCard()}catch(e){}
+  try{if(drawerOpen)toggleDrawer(false)}catch(e){}
+  try{toggleMenu(false)}catch(e){}
+  try{toggleDebug(false)}catch(e){}
+  try{$('dlg').hidden=true;dlgOpen=false;dlgCb=null}catch(e){}
+  try{if(RG&&RG.inside)leaveSite()}catch(e){}
+  RG=null;player=null;MpWorld=null;placing=null;insp=null;selTh=null;mindSig='';libSig='';
+}
+function hideMainMenu(){
+  inMenu=false;mmConfirm=null;mmView='main';
+  const el=$('mainmenu');if(el)el.hidden=true;
+  $('app').classList.remove('mm-hidden');
+}
+function beginPlaySession(){
+  hideMainMenu();
+  paused=false;
+  try{updFk();uiTick()}catch(e){}
+  let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}
+  if(!done)coach(0);
+}
+async function probeHostWorlds(){
+  try{
+    const st=await fetch('/api/status',{cache:'no-store'});
+    if(!st.ok){mmHost=null;return}
+    const w=await fetch('/api/worlds',{cache:'no-store'});
+    if(!w.ok){mmHost=null;return}
+    mmHost=await w.json();
+  }catch(e){mmHost=null}
+}
+function renderMainMenu(){
+  const el=$('mainmenu');if(!el||!inMenu)return;
+  if(mmView==='settings'){
+    const theme=document.documentElement.getAttribute('data-theme')||'auto';
+    el.innerHTML=`<div class="mm-panel"><h1 class="mm-title">Settings</h1>
+      <div class="mm-set">
+        <label><span>Theme</span><button type="button" data-mm="theme">${theme==='dark'?'Dark':theme==='light'?'Light':'Auto'}</button></label>
+        <label><span>Interface</span><button type="button" data-mm="uimode">${SIMPLE?'Simple':'Detailed'}</button></label>
+        <label><span>Control</span><button type="button" data-mm="playmode">${MANUAL?'Manual':'Mind'}</button></label>
+      </div>
+      <div class="mm-actions"><button type="button" data-mm="back">Back</button></div>
+      <p class="mm-hint">Esc · back</p></div>`;
+    return;
+  }
+  const entries=mmEntries();
+  if(mmSel>=entries.length)mmSel=Math.max(0,entries.length-1);
+  const rows=entries.length?entries.map((e,i)=>{
+    const sub=e.kind==='solo'
+      ?`tier ${(e.meta.best||1)-1||0} · ${e.meta.sites||'?'} sites`
+      :(e.active?'active host':(e.meta.ephemeral?'memory':'host'));
+    return`<button type="button" class="mm-row${i===mmSel?' on':''}" data-mm="sel" data-i="${i}"><span>${esc(e.name)}</span><span class="r">${esc(e.label)} · ${esc(sub)}</span></button>`;
+  }).join(''):`<div class="mm-row dim" style="cursor:default">No Regions yet — New Region</div>`;
+  const hostNote=mmHost?`<p class="mm-hint">Host online · world <b>${esc(mmHost.active||'memory')}</b></p>`:`<p class="mm-hint">Solo Regions in this browser. Host worlds appear when MIND VESSEL Host is serving this page.</p>`;
+  el.innerHTML=`<div class="mm-panel">
+    <h1 class="mm-title">MIND//VESSEL</h1>
+    <p class="mm-outline">${esc(MM_OUTLINE)}</p>
+    <h3 class="mm-sec">Regions</h3>
+    <div class="mm-list" role="listbox">${rows}</div>
+    <div class="mm-status">${esc(mmStatus)}${mmConfirm?' · confirm delete (again)':''}</div>
+    <div class="mm-actions">
+      <button type="button" class="primary" data-mm="enter">Enter</button>
+      <button type="button" data-mm="new">New Region</button>
+      <button type="button" data-mm="del">Delete</button>
+      <button type="button" data-mm="settings">Settings</button>
+      <button type="button" data-mm="friends">Play with friends…</button>
+    </div>
+    ${hostNote}
+    <p class="mm-hint">↑↓ select · Enter · N new · Del delete · S settings · Esc</p>
+  </div>`;
+}
+function showMainMenu(){
+  inMenu=true;paused=true;mmView='main';mmConfirm=null;mmStatus='';
+  softResetPlay();
+  $('app').classList.add('mm-hidden');
+  const el=$('mainmenu');el.hidden=false;
+  probeHostWorlds().then(()=>{if(inMenu)renderMainMenu()});
+  renderMainMenu();
+}
+function quitToMenu(){
+  try{if(!netActive())saveCampaign()}catch(e){}
+  softResetPlay();
+  showMainMenu();
+}
+function leavePlayToMenu(){
+  toggleMenu(false);
+  try{if(typeof netActive==='function'&&netActive())netDisconnect()}catch(e){}
+  quitToMenu();
+}
+async function mmEnterSelected(){
+  const entries=mmEntries();const e=entries[mmSel];
+  if(!e){mmStatus='Create a Region first.';renderMainMenu();return}
+  mmConfirm=null;
+  if(e.kind==='solo'){
+    softResetPlay();
+    const ok=loadSoloSlot(e.id);
+    if(ok===true){beginPlaySession();return}
+    if(ok==='world'){newVessel();beginPlaySession();return}
+    mmStatus='Could not load that Region.';inMenu=true;renderMainMenu();return;
+  }
+  // host world
+  try{
+    const r=await fetch('/api/worlds/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:e.id})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){mmStatus=j.error||'Could not activate host world';renderMainMenu();return}
+    await probeHostWorlds();
+    // Connect to local host WS
+    let wsUrl='';
+    try{
+      const st=await(await fetch('/api/status')).json();
+      wsUrl=st.wsLocal||st.wsDirect||('ws://'+location.hostname+':'+(st.port||7777));
+    }catch(err){wsUrl='ws://'+location.host.replace(/^http/,'ws')}
+    if(location.protocol==='http:'||location.protocol==='https:'){
+      const u=new URL(location.href);
+      if(!u.pathname.includes('play')){location.href='/play?ws='+encodeURIComponent(wsUrl);return}
+    }
+    softResetPlay();
+    hideMainMenu();
+    newVessel(); // temporary local until welcome — welcome replaces
+    netConnectDirect(wsUrl,'');
+    paused=false;
+  }catch(err){mmStatus='Host activate failed.';renderMainMenu()}
+}
+async function mmNewRegion(){
+  mmConfirm=null;
+  const entries=mmEntries();
+  const cur=entries[mmSel];
+  // New host world when a host row is selected (or only host worlds listed)
+  if(mmHost&&cur&&cur.kind==='host'){
+    try{
+      const name=('r_'+Date.now().toString(36)).slice(0,32);
+      const r=await fetch('/api/worlds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){mmStatus=j.error||'Could not create host world';renderMainMenu();return}
+      await probeHostWorlds();
+      const idx=mmEntries().findIndex(x=>x.kind==='host'&&x.id===j.name);
+      if(idx>=0)mmSel=idx;
+      mmStatus='Created host world '+j.name+'. Enter to play.';
+      renderMainMenu();
+    }catch(err){mmStatus='Host create failed.';renderMainMenu()}
+    return;
+  }
+  loadRegionIndex();
+  if(regionIndex.slots.length>=MAX_REGION_SLOTS){mmStatus='Region limit ('+MAX_REGION_SLOTS+'). Delete one first.';renderMainMenu();return}
+  const id=newSlotId();
+  softResetPlay();
+  regionIndex.slots.push({id,name:'New Region',updated:Date.now(),best:1});
+  regionIndex.activeId=id;saveRegionIndex();
+  inMenu=false;$('app').classList.remove('mm-hidden');$('mainmenu').hidden=true;
+  newVessel();
+  touchSlotMeta();saveCampaign();
+  beginPlaySession();
+}
+async function mmDeleteSelected(){
+  const entries=mmEntries();const e=entries[mmSel];
+  if(!e){mmStatus='Nothing to delete.';renderMainMenu();return}
+  const key=e.kind+':'+e.id;
+  if(mmConfirm!==key){mmConfirm=key;mmStatus='Delete '+e.name+'?';renderMainMenu();return}
+  mmConfirm=null;
+  if(e.kind==='solo'){
+    deleteSoloSlot(e.id);
+    mmStatus='Deleted '+e.name+'.';
+    mmSel=Math.min(mmSel,Math.max(0,mmEntries().length-1));
+    renderMainMenu();return;
+  }
+  try{
+    const r=await fetch('/api/worlds/'+encodeURIComponent(e.id),{method:'DELETE'});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){mmStatus=j.error==='players_online'?'Players online — cannot delete active world.':(j.error||'Delete failed');renderMainMenu();return}
+    mmStatus='Deleted host world '+e.name+'.';
+    await probeHostWorlds();
+    renderMainMenu();
+  }catch(err){mmStatus='Delete failed.';renderMainMenu()}
+}
+function mmOnKey(e){
+  if(!inMenu)return false;
+  if(mmView==='settings'){
+    if(e.key==='Escape'){mmView='main';renderMainMenu();return true}
+    return false;
+  }
+  if(e.key==='ArrowDown'){mmSel++;mmConfirm=null;renderMainMenu();return true}
+  if(e.key==='ArrowUp'){mmSel=Math.max(0,mmSel-1);mmConfirm=null;renderMainMenu();return true}
+  if(e.key==='Enter'){mmEnterSelected();return true}
+  if(e.key==='n'||e.key==='N'){mmNewRegion();return true}
+  if(e.key==='Delete'||e.key==='Backspace'){mmDeleteSelected();return true}
+  if(e.key==='s'||e.key==='S'){mmView='settings';renderMainMenu();return true}
+  if(e.key==='Escape'){mmConfirm=null;mmStatus='';renderMainMenu();return true}
+  return false;
+}
+$('mainmenu').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||!inMenu)return;
+  const a=b.dataset.mm;if(!a)return;
+  if(a==='sel'){mmSel=+b.dataset.i||0;mmConfirm=null;renderMainMenu();return}
+  if(a==='enter'){mmEnterSelected();return}
+  if(a==='new'){mmNewRegion();return}
+  if(a==='del'){mmDeleteSelected();return}
+  if(a==='settings'){mmView='settings';renderMainMenu();return}
+  if(a==='friends'){showFriendsDlg('join');return}
+  if(a==='back'){mmView='main';renderMainMenu();return}
+  if(a==='theme'){cmd('t');renderMainMenu();return}
+  if(a==='uimode'){setSimple(!SIMPLE);renderMainMenu();return}
+  if(a==='playmode'){setManual(!MANUAL);renderMainMenu();return}
+});
 
 // ================================================================ loop
 let last=performance.now();
 function frame(now){
   const rdt=Math.min(.05,(now-last)/1000);last=now;
+  if(inMenu){requestAnimationFrame(frame);return}
   // #region agent log
   _dbgFrameN++;
   const gateBlocked=paused||dlgOpen||(player&&player.dead);
@@ -8553,15 +9334,15 @@ function frame(now){
   // #endregion
   try{
     // Connected clients are views of the host sim — don't diverge local worlds
-    if(!paused&&!dlgOpen&&!player.dead&&!(typeof netActive==='function'&&netActive()))for(let k=0;k<speed;k++)update(rdt);
-    if(!paused&&!dlgOpen)updFx(rdt);
+    if(player&&!paused&&!dlgOpen&&!player.dead&&!(typeof netActive==='function'&&netActive()))for(let k=0;k<speed;k++)update(rdt);
+    if(player&&!paused&&!dlgOpen)updFx(rdt);
   // #region agent log
   }catch(err){_dbgLog('B','frame:updateThrow','update threw (loop continues)',{err:String(err&&err.message||err),stack:String(err&&err.stack||'').slice(0,700),paused,dlgOpen,body:player&&player.equip&&player.equip.body&&player.equip.body.kind})}
   // #endregion
   if(lookAt){lookAt.t-=rdt;if(lookAt.t<=0)lookAt=null}
-  if(player.dead&&deathT>0){deathT-=rdt;if(deathT<=0&&!dlgOpen)showDeath()}
+  if(player&&player.dead&&deathT>0){deathT-=rdt;if(deathT<=0&&!dlgOpen)showDeath()}
   try{
-    draw(now/1000);updTag();updBarks(paused||dlgOpen?0:rdt);
+    if(player&&RG){draw(now/1000);updTag();updBarks(paused||dlgOpen?0:rdt)}
     uiT-=rdt;if(uiT<=0){uiT=.2;uiTick()}
   // #region agent log
   }catch(err){_dbgLog('C','frame:drawThrow','draw/ui threw (loop continues)',{err:String(err&&err.message||err),stack:String(err&&err.stack||'').slice(0,700),body:player&&player.equip&&player.equip.body&&player.equip.body.kind,inspKind:insp&&insp.kind});try{if(insp)closeCard()}catch(_){}}
@@ -8569,14 +9350,16 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 let uiT=0;
-const resumed=loadCampaign()===true;if(!resumed)newVessel();
-updFk();uiTick();
-// If opened via lobby invite (?ws=…), connect immediately — don't wait for Begin
+migrateLegacyCampaign();
+loadRegionIndex();
+// If opened via lobby invite (?ws=…), connect immediately — don't wait for menu
 const _autoJoin=tryAutoJoinFromUrl();
-if(!_autoJoin){
-  showDlg('MIND//VESSEL',START,resumed?'Continue':'Begin',()=>{let done=false;try{done=localStorage.getItem('mindvessel.coached5')==='1'}catch(e){}if(!done)coach(0)});
-}else{
+if(_autoJoin){
+  const resumed=loadCampaign()===true;if(!resumed)newVessel();
+  updFk();uiTick();
   try{$('dlg').hidden=true;dlgOpen=false}catch(e){}
+}else{
+  showMainMenu();
 }
 requestAnimationFrame(frame);
 </script>

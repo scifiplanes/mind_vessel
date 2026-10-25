@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { loadGame } = require('../tests/harness/dom');
-const { saveWorld, loadWorld, importSoloCampaign } = require('./worldFile');
+const { saveWorld, loadWorld, importSoloCampaign, listWorlds, deleteWorld, safeWorldName } = require('./worldFile');
 
 async function main() {
   const g = await loadGame();
@@ -50,6 +50,14 @@ async function main() {
   g3.hostTick(3);
   // always-on with no hot sites still may regionStep
   assert.ok(g3.gameTime > gt0, 'always-on advances gameTime');
+
+  assert.equal(safeWorldName('ok_World-1'), 'ok_World-1');
+  assert.equal(safeWorldName('../x'), null);
+  saveWorld(path.join(dir, 'listed.json'), blob);
+  const listed = listWorlds(dir);
+  assert.ok(listed.some(w => w.name === 'listed' && w.bytes > 0));
+  deleteWorld(dir, 'listed');
+  assert.ok(!listWorlds(dir).some(w => w.name === 'listed'));
 
   fs.rmSync(dir, { recursive: true, force: true });
   console.log('PASS worldFile.test');

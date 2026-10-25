@@ -1,0 +1,274 @@
+{
+  "when": "2026-10-25T12:25:38.466Z",
+  "phases": [
+    {
+      "label": "parked_60s_pose_on",
+      "seconds": 60,
+      "wallSec": 0.77,
+      "upd": {
+        "mean": 0.566,
+        "med": 0.275,
+        "p95": 1.611,
+        "max": 2.482
+      },
+      "snap": {
+        "liveActors": 19,
+        "objs": 16,
+        "parts": 480,
+        "envLights": 142,
+        "regrow": 0,
+        "poseN": 1,
+        "dunN": 1,
+        "dunCanvasN": 0,
+        "news": 8,
+        "heardN": 0,
+        "logN": 8,
+        "walks": 267
+      },
+      "breakdown": {
+        "updActor": 0.483,
+        "pose": 0.009,
+        "rest": 0.06,
+        "total": 0.552
+      },
+      "opts": {
+        "pose": true
+      }
+    },
+    {
+      "label": "parked_plus_120s_pose_on",
+      "seconds": 120,
+      "wallSec": 1.62,
+      "upd": {
+        "mean": 0.869,
+        "med": 0.584,
+        "p95": 3.217,
+        "max": 3.335
+      },
+      "snap": {
+        "liveActors": 24,
+        "objs": 15,
+        "parts": 480,
+        "envLights": 143,
+        "regrow": 0,
+        "poseN": 1,
+        "dunN": 1,
+        "dunCanvasN": 0,
+        "news": 13,
+        "heardN": 0,
+        "logN": 11,
+        "walks": 267
+      },
+      "breakdown": {
+        "updActor": 0.858,
+        "pose": 0.011,
+        "rest": 0.087,
+        "total": 0.956
+      },
+      "opts": {
+        "pose": true
+      }
+    },
+    {
+      "label": "parked_60s_pose_off",
+      "seconds": 60,
+      "wallSec": 1.48,
+      "upd": {
+        "mean": 2.925,
+        "med": 2.184,
+        "p95": 7.688,
+        "max": 8.233
+      },
+      "snap": {
+        "liveActors": 37,
+        "objs": 14,
+        "parts": 480,
+        "envLights": 144,
+        "regrow": 0,
+        "poseN": 1,
+        "dunN": 1,
+        "dunCanvasN": 0,
+        "news": 18,
+        "heardN": 0,
+        "logN": 16,
+        "walks": 267
+      },
+      "breakdown": {
+        "updActor": 4.777,
+        "pose": 0.001,
+        "rest": 0.103,
+        "total": 4.881
+      },
+      "opts": {
+        "pose": false
+      }
+    },
+    {
+      "label": "parked_60s_pose_on_again",
+      "seconds": 60,
+      "wallSec": 8.93,
+      "upd": {
+        "mean": 11.924,
+        "med": 11.511,
+        "p95": 17.623,
+        "max": 18.501
+      },
+      "snap": {
+        "liveActors": 36,
+        "objs": 14,
+        "parts": 480,
+        "envLights": 144,
+        "regrow": 0,
+        "poseN": 8,
+        "dunN": 1,
+        "dunCanvasN": 0,
+        "news": 26,
+        "heardN": 0,
+        "logN": 26,
+        "walks": 267
+      },
+      "breakdown": {
+        "updActor": 13.039,
+        "pose": 0.057,
+        "rest": 0.131,
+        "total": 13.227
+      },
+      "opts": {
+        "pose": true
+      }
+    },
+    {
+      "label": "fresh_180s_pose_off",
+      "seconds": 180,
+      "wallSec": 3.94,
+      "upd": {
+        "mean": 3.6,
+        "med": 2.64,
+        "p95": 9.293,
+        "max": 9.984
+      },
+      "snap": {
+        "liveActors": 45,
+        "objs": 14,
+        "parts": 480,
+        "envLights": 148,
+        "regrow": 0,
+        "poseN": 0,
+        "dunN": 1,
+        "dunCanvasN": 0,
+        "news": 41,
+        "heardN": 0,
+        "logN": 37,
+        "walks": 267
+      },
+      "breakdown": {
+        "updActor": 3.767,
+        "pose": 0.001,
+        "rest": 0.117,
+        "total": 3.885
+      },
+      "opts": {
+        "pose": false
+      }
+    },
+    {
+      "label": "fresh_180s_pose_on",
+      "seconds": 180,
+      "wallSec": 8.31,
+      "upd": {
+        "mean": 2.917,
+        "med": 2.618,
+        "p95": 5.091,
+        "max": 5.715
+      },
+      "snap": {
+        "liveActors": 27,
+        "objs": 18,
+        "parts": 480,
+        "envLights": 140,
+        "regrow": 4,
+        "poseN": 2,
+        "dunN": 1,
+        "dunCanvasN": 0,
+        "news": 56,
+        "heardN": 0,
+        "logN": 62,
+        "walks": 267
+      },
+      "breakdown": {
+        "updActor": 2.759,
+        "pose": 0.024,
+        "rest": 0.132,
+        "total": 2.915
+      },
+      "opts": {
+        "pose": true
+      }
+    }
+  ],
+  "verdicts": [
+    {
+      "id": "V1_parked_accumulates",
+      "claim": "Even with travel disabled, update() cost rises over a parked session",
+      "before": {
+        "mean": 0.566,
+        "med": 0.275,
+        "p95": 1.611,
+        "max": 2.482
+      },
+      "after": {
+        "mean": 0.869,
+        "med": 0.584,
+        "p95": 3.217,
+        "max": 3.335
+      },
+      "snapDelta": {
+        "objs": -1,
+        "parts": 0,
+        "envLights": 1,
+        "regrow": 0,
+        "actors": 5,
+        "poseN": 0,
+        "dunN": 0
+      },
+      "verdict": "PARTIAL"
+    },
+    {
+      "id": "V2_pose_dominates",
+      "claim": "Pose system accounts for most of the long-run update cost",
+      "poseOn": {
+        "mean": 2.917,
+        "med": 2.618,
+        "p95": 5.091,
+        "max": 5.715
+      },
+      "poseOff": {
+        "mean": 3.6,
+        "med": 2.64,
+        "p95": 9.293,
+        "max": 9.984
+      },
+      "ratio": 0.81,
+      "verdict": "REJECTED"
+    },
+    {
+      "id": "V3_envLights_regrow_grow",
+      "claim": "envLights and/or regrowList grow while parked and track cost",
+      "evidence": {
+        "env": 1,
+        "regrow": 0,
+        "updGrowth": 0.303
+      },
+      "verdict": "REJECTED"
+    },
+    {
+      "id": "V4_parts_grow_parked",
+      "claim": "Particle count climbs while parked (ambient FX)",
+      "evidence": {
+        "partsFrom": 480,
+        "partsTo": 480
+      },
+      "verdict": "REJECTED"
+    }
+  ]
+}
